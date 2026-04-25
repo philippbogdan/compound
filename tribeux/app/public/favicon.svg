@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <circle cx="16" cy="13" r="13" fill="#1A1A1A"/>
+  <!-- Arrow: head from tip (top) down through rounded shoulders, shaft extends out the bottom. -->
+  <path d="
+    M 16 6.8
+    Q 16.9 6.8 17.55 7.45
+    L 22 11.9
+    Q 23 12.9 22 13.9
+    Q 21 14.9 20 13.9
+    L 18.4 12.3
+    Q 17.6 11.5 17.6 12.6
+    L 17.6 28.2
+    Q 17.6 30 16 30
+    Q 14.4 30 14.4 28.2
+    L 14.4 12.6
+    Q 14.4 11.5 13.6 12.3
+    L 12 13.9
+    Q 11 14.9 10 13.9
+    Q 9 12.9 10 11.9
+    L 14.45 7.45
+    Q 15.1 6.8 16 6.8
+    Z"
+    fill="#F2F0EB"/>
+</svg>

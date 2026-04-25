@@ -1,6 +1,16 @@
+# urltovideo
 /urltovideo/venv/
 /urltovideo/recordings_raw/
 /urltovideo/*.mp4
 /urltovideo/*.webm
 /urltovideo/__pycache__/
 /urltovideo/.DS_Store
+
+# Playwright MCP server artifacts
+.playwright-mcp/
+
+# macOS
+.DS_Store
+
+# Stray test screenshots in repo root
+/*.png
