@@ -290,7 +290,7 @@ export default function Demo() {
             <dt>Stimulus</dt>
             <dd>{frames.length || 13} × 256² · scrolling capture</dd>
             <dt>Cortex model</dt>
-            <dd>TRIBE v2 (stub) · Destrieux · 4 affective axes</dd>
+            <dd>TRIBE v2 · Destrieux · 4 affective axes</dd>
           </dl>
         </div>
 
@@ -309,7 +309,7 @@ export default function Demo() {
             <BrainCanvas width={268} height={268} autoRotate brightness={0.85} />
           </div>
           <p className="scan__brain__caption">
-            <strong>TRIBE v2 (stub) · plug-and-play</strong>
+            <strong>TRIBE v2 · plug-and-play</strong>
             <span>
               {flaggedIndices.length
                 ? `Claude flagged frames ${flaggedIndices.join(', ')}`

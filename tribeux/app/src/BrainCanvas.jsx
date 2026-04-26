@@ -57,7 +57,7 @@ async function loadFsavg(url) {
 // number of focal blobs lit at once — never half the cortex. With a larger
 // parcel pool but a hard cap, we get visual variety (different clusters fire
 // over time) without ever lighting the whole brain at once.
-const MAX_ACTIVE_PARCELS = 3
+const MAX_ACTIVE_PARCELS = 4
 
 function buildParcels() {
   const parcels = []
@@ -83,20 +83,34 @@ function buildParcels() {
         parcels.push({
           region: L.name, side: side < 0 ? 'L' : 'R', pos: v,
           // Small focal cluster radius — fMRI cluster look, not heat halos.
-          radius:   0.07 + Math.random()*0.04,
+          radius:   0.08 + Math.random()*0.045,
           state: 'quiet', phase: 0, intensity: 0,
-          // Peak intensity max ~0.55 — bright enough to read as "hot" against
-          // the high activation threshold without the saturated red-blob look.
-          peak:     0.40 + Math.random()*0.15,
-          rise:     1.4  + Math.random()*1.4,
+          // Peak 0.60-0.85: comfortably above ACT_THRESHOLD (0.32) so the
+          // activation is clearly visible against the base colour.
+          peak:     0.60 + Math.random()*0.25,
+          // Fast rise so the first lit parcels appear within ~1 s.
+          rise:     0.7  + Math.random()*0.8,
           hold:     0.5  + Math.random()*0.7,
-          fall:     2.4  + Math.random()*2.0,
-          // Long cooldown so the same cluster doesn't fire repeatedly.
-          cooldown: 14   + Math.random()*14,
-          timer:    Math.random() * 22,
+          fall:     1.8  + Math.random()*1.4,
+          // Moderate cooldown keeps activity refreshing without lighting
+          // the same cluster twice in quick succession.
+          cooldown: 5    + Math.random()*7,
+          // First ignition happens in the first few seconds — not the first
+          // 0-22s. Cached demos finish in ~3 s; activity must be visible.
+          timer:    Math.random() * 2.5,
         })
       }
     })
+  })
+  // Seed a handful of parcels already partway through their build phase so
+  // the first rendered frame already shows some hot spots. Without this,
+  // the canvas looks inert for the first half-second.
+  const seeded = parcels.slice().sort(() => Math.random()-0.5).slice(0, 3)
+  seeded.forEach((p, i) => {
+    p.state = 'building'
+    p.phase = 0.4 + i*0.15
+    p.intensity = easeOutCubic(p.phase) * p.peak
+    p.timer = 0
   })
   return parcels
 }
@@ -173,9 +187,10 @@ function hashNoise(nx, ny, nz) {
 }
 
 // Activation threshold. Higher → more cortex stays cool; only true cluster
-// peaks light up. Combined with small parcel radii + active cap, this is the
-// main lever for the focal-clusters look.
-const ACT_THRESHOLD = 0.40
+// peaks light up. Lowered from 0.40 → 0.32 so the outer ring of a cluster's
+// Gaussian falloff is still visible (you see a small bright speckle around
+// each peak, not just a pinpoint dot).
+const ACT_THRESHOLD = 0.32
 
 function writeColors(dirs, colors, parcels, count, brightness) {
   for (let i=0; i<count; i++) {
