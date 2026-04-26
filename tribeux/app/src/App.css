@@ -1302,6 +1302,14 @@
   max-width: 62ch;
 }
 
+/* before/after hero — sits at the top of the report, full container width */
+.report__hero {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 /* diff */
 .diff {
   display: grid;
@@ -1319,6 +1327,18 @@
   overflow: hidden;
   background-image: radial-gradient(var(--ink) 18%, transparent 20%);
   background-size: 8px 8px;
+}
+/* hero variant — wider aspect so the side-by-side reads big at the top */
+.diff--hero { margin-top: 0; }
+.diff--hero .diff__side { aspect-ratio: 16 / 10; }
+.diff--hero .diff__side__stamp {
+  font-size: 13px;
+  padding: 6px 14px;
+  letter-spacing: 0.18em;
+}
+.diff--hero .starburst {
+  width: 168px; height: 168px;
+  bottom: -28px; right: -22px;
 }
 .diff__side + .diff__side { border-left: 2px solid var(--ink); }
 .diff__side__stamp {
@@ -1465,6 +1485,9 @@
   .scan__aside             { position: static; }
   .report__header          { grid-template-columns: 1fr; align-items: start; }
   .report__body            { grid-template-columns: 1fr; }
+  .diff--hero              { grid-template-columns: 1fr; }
+  .diff--hero .diff__side + .diff__side { border-left: 0; border-top: 2px solid var(--ink); }
+  .diff--hero .diff__side  { aspect-ratio: 4 / 3; }
 }
 
 @media (max-width: 700px) {

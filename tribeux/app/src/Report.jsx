@@ -301,6 +301,43 @@ export default function Report() {
         <HistoryBreadcrumb chain={chain} activeId={jobId} onJump={(id) => navigate(`/report?job=${id}`)} />
       )}
 
+      <div className="report__hero">
+        <div className="col-head">
+          <span>§ D</span>
+          <h3>Before, after</h3>
+        </div>
+        <div className="diff diff--hero">
+          <div className="diff__side">
+            <span className="diff__side__stamp">v1 · current</span>
+            {result.screenshot_v1_data_url ? (
+              <img src={result.screenshot_v1_data_url} alt="Current site"
+                style={diffImgStyle} />
+            ) : (
+              <img src="/airbnb-landing.png" alt="Current site" style={diffImgStyle}
+                onError={e => { e.currentTarget.style.display = 'none' }} />
+            )}
+          </div>
+          <div className="diff__side is-after">
+            <span className="diff__side__stamp">v2 · proposed</span>
+            {result.screenshot_v2_data_url ? (
+              <img src={result.screenshot_v2_data_url} alt="Proposed redesign"
+                style={diffImgStyle} />
+            ) : (
+              <img
+                src="/sticker-brain-fire.png"
+                alt="Proposed redesign"
+                style={{
+                  width: '72%', height: 'auto', position: 'absolute',
+                  right: -20, bottom: -20, transform: 'rotate(6deg)', opacity: 0.55,
+                  mixBlendMode: 'multiply',
+                }}
+              />
+            )}
+          </div>
+          <StarburstBadge uplift={uplift} />
+        </div>
+      </div>
+
       <div className="report__body">
         <div className="report-col">
           <div className="col-head">
@@ -454,42 +491,6 @@ export default function Report() {
                 </div>
               </article>
             )}
-          </div>
-
-          <div className="col-head" style={{ marginTop: 12 }}>
-            <span>§ D</span>
-            <h3>Before, after</h3>
-          </div>
-
-          <div className="diff">
-            <div className="diff__side">
-              <span className="diff__side__stamp">v1 · current</span>
-              {result.screenshot_v1_data_url ? (
-                <img src={result.screenshot_v1_data_url} alt="Current site"
-                  style={diffImgStyle} />
-              ) : (
-                <img src="/airbnb-landing.png" alt="Current site" style={diffImgStyle}
-                  onError={e => { e.currentTarget.style.display = 'none' }} />
-              )}
-            </div>
-            <div className="diff__side is-after">
-              <span className="diff__side__stamp">v2 · proposed</span>
-              {result.screenshot_v2_data_url ? (
-                <img src={result.screenshot_v2_data_url} alt="Proposed redesign"
-                  style={diffImgStyle} />
-              ) : (
-                <img
-                  src="/sticker-brain-fire.png"
-                  alt="Proposed redesign"
-                  style={{
-                    width: '72%', height: 'auto', position: 'absolute',
-                    right: -20, bottom: -20, transform: 'rotate(6deg)', opacity: 0.55,
-                    mixBlendMode: 'multiply',
-                  }}
-                />
-              )}
-            </div>
-            <StarburstBadge uplift={uplift} />
           </div>
         </div>
       </div>
