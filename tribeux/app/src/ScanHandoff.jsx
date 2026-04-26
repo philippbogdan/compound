@@ -1,10 +1,17 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { EASE_OUT_QUINT } from './motion'
 
-// The total beat from "user pressed enter" to "we navigate to /demo."
-// Tweak only here — every CSS animation-delay in App.css is keyed to this.
-export const SCAN_HANDOFF_MS = 3400
+// The cinematic itself: stage rises, URL types, two scans sweep, green flash
+// + Successful pull tape stamps. Internal CSS animation-delays in App.css are
+// keyed to this — tweak there in lockstep if you change SCAN_BEAT_MS.
+const SCAN_BEAT_MS = 3400
+// After the cinematic settles, the whole overlay fades + blurs out before we
+// fire onComplete and route to /demo, so the handoff doesn't feel like a cut.
+const EXIT_MS = 700
+// Total time from submit → /demo route nav. Exported so Landing can stay in
+// sync if needed.
+export const SCAN_HANDOFF_MS = SCAN_BEAT_MS + EXIT_MS
 
 // A small deterministic block layout for the faux site scaffold so that the
 // "scanned site" reads as a website without resembling any specific brand.
@@ -22,9 +29,14 @@ const SCAFFOLD_BLOCKS = [
 ]
 
 export default function ScanHandoff({ url, onComplete }) {
+  const [exiting, setExiting] = useState(false)
   useEffect(() => {
-    const t = setTimeout(onComplete, SCAN_HANDOFF_MS)
-    return () => clearTimeout(t)
+    const startExit = setTimeout(() => setExiting(true), SCAN_BEAT_MS)
+    const finish = setTimeout(onComplete, SCAN_HANDOFF_MS)
+    return () => {
+      clearTimeout(startExit)
+      clearTimeout(finish)
+    }
   }, [onComplete])
 
   // Strip protocol off the URL the user typed; we render the scheme separately.
@@ -34,7 +46,7 @@ export default function ScanHandoff({ url, onComplete }) {
 
   return (
     <motion.div
-      className="scan-handoff"
+      className={`scan-handoff${exiting ? ' is-exiting' : ''}`}
       role="status"
       aria-live="polite"
       initial={{ opacity: 0 }}
@@ -75,7 +87,7 @@ export default function ScanHandoff({ url, onComplete }) {
           <div className="scan-handoff__scanline" aria-hidden="true" />
           <div className="scan-handoff__flash" aria-hidden="true" />
           <div className="scan-handoff__tape">
-            <span>✓ STIMULUS LOCKED</span>
+            <span>Successful pull</span>
           </div>
         </div>
 
