@@ -1,11 +1,11 @@
 ---
-title: "TribeUX — Master Plan"
+title: "Compound — Master Plan"
 subtitle: "Closed-loop neural UX analyser"
 event: "To The Americas Hackathon — April 25–26, 2026"
 team: "Apple ML intern · Imperial CS · 3x hackathon winner"
 ---
 
-# TribeUX — Master Plan
+# Compound — Master Plan
 
 **One paragraph.** Paste a URL. We render the site, run it through Meta's TRIBE v2 brain-encoder, run perturbation analysis to find the section with weakest predicted attention, generate a redesigned version of that section with image-gen, and show predicted uplift in a beautiful before/after report. Demo uses TRIBE v2 (CC BY-NC) as a research prototype; the commercial product roadmap trains a proprietary model on collected data. Founding-user deposits at £9.
 
@@ -289,7 +289,7 @@ config:
   theme: base
 ---
 flowchart LR
-    Product["TribeUX product"]
+    Product["Compound product"]
 
     subgraph Mubit["Mubit · £808 bounty"]
         MubitLoop["@mubit.learn.run on<br/>delta-generation agent<br/>remembers redesign patterns<br/>that improved uplift"]

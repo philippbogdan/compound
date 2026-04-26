@@ -3,8 +3,8 @@ import { NavLink } from 'react-router-dom'
 export function Masthead() {
   return (
     <header className="masthead">
-      <div className="masthead__word" aria-label="TRIBEUX">
-        TRIBE<em>UX</em>
+      <div className="masthead__word" aria-label="Compound">
+        Comp<em>ound</em>
       </div>
       <div className="masthead__status" aria-live="polite">
         Cortex online
@@ -21,7 +21,7 @@ export function Masthead() {
 export function Colophon() {
   return (
     <footer className="colophon">
-      <span>TRIBEUX · hackathon build · 2026</span>
+      <span>Compound · hackathon build · 2026</span>
       <span>TRIBE v2 (Meta, CC BY-NC) · non-clinical</span>
     </footer>
   )
