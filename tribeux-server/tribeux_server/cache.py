@@ -3,8 +3,8 @@
 Each `run_pipeline` invocation takes ~1-3 min (TRIBE round-trip dominates).
 For repeat demos of the same URL + patch_script, that's dead weight. This
 module lets us save the entire Report (plus the logs, checkpoints, and
-progress events that narrated the pipeline) so the next run can replay
-them fast.
+progress events that narrated the pipeline, AND the scroll-capture mp4)
+so the next run can replay them fast, with the video already on disk.
 
 Enable with env `TRIBEUX_CACHE=1`. Override location with
 `TRIBEUX_CACHE_DIR` (default `/tmp/tribeux_cache`). Force a recompute
@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Optional
 
@@ -50,20 +51,32 @@ def key_for(url: str, patch_script: str) -> str:
     return h.hexdigest()[:24]
 
 
-def _path(key: str) -> Path:
+def _json_path(key: str) -> Path:
     return _cache_dir() / f"{key}.json"
 
 
+def _video_path(key: str) -> Path:
+    return _cache_dir() / f"{key}.mp4"
+
+
 def get(key: str) -> Optional[dict[str, Any]]:
-    """Return the cached payload {report, logs, checkpoints} or None."""
-    p = _path(key)
+    """Return the cached payload {report, logs, checkpoints, video_path} or None.
+
+    The returned `video_path` is the on-disk location of the cached mp4 (or
+    None if the cache was written without video). The caller is responsible
+    for wiring it into `jobs.store.set_video(job_id, ...)` during replay.
+    """
+    p = _json_path(key)
     if not p.is_file():
         return None
     try:
         with p.open() as f:
-            return json.load(f)
+            payload = json.load(f)
     except Exception:  # noqa: BLE001 — cache is best-effort
         return None
+    vp = _video_path(key)
+    payload["video_path"] = str(vp) if vp.is_file() else None
+    return payload
 
 
 def put(
@@ -73,7 +86,13 @@ def put(
     logs: list[dict[str, Any]],
     checkpoints: list[dict[str, Any]],
     progress_trace: list[dict[str, Any]],
+    video_source_path: Optional[str] = None,
 ) -> None:
+    """Persist the Report JSON and, if provided, copy the mp4 to the cache dir.
+
+    The video is copied (not moved) so the live pipeline's tempdir can be
+    cleaned up on its usual schedule without leaving the cache dangling.
+    """
     try:
         payload = {
             "report": report.model_dump(),
@@ -81,7 +100,14 @@ def put(
             "checkpoints": checkpoints,
             "progress_trace": progress_trace,
         }
-        with _path(key).open("w") as f:
+        with _json_path(key).open("w") as f:
             json.dump(payload, f)
     except Exception:  # noqa: BLE001 — never block the demo on cache-write
         pass
+    if video_source_path:
+        try:
+            src = Path(video_source_path)
+            if src.is_file():
+                shutil.copy2(src, _video_path(key))
+        except Exception:  # noqa: BLE001
+            pass
