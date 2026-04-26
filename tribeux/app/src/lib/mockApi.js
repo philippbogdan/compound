@@ -80,7 +80,9 @@ function makeFakeStream(jobId, url) {
         t: fmtT(tStart), stage: stage.key, kind: 'begin',
         label: stage.log.split('·')[0].trim(), elapsed_ms: 0,
       })
-      fire('log', { t: fmtT(tStart), stage: stage.key.toUpperCase(), message: stage.log })
+      // Lowercase stage matches STAGE_INDEX keys in Demo.jsx so CliStream's
+      // merge ordering interleaves logs with checkpoints correctly.
+      fire('log', { t: fmtT(tStart), stage: stage.key, message: stage.log })
       fire('progress', { stage: stage.key, pct: ((idx + 1) / MOCK_STAGES.length) * 100 })
       if (idx === 0) fire('status', { status: 'running' })
     }, tStart))
@@ -134,7 +136,7 @@ function buildTerminalEvents(url) {
     const tStart = idx * STAGE_DURATION_MS
     const label = stage.log.split('·')[0].trim()
     out.push(['checkpoint', { t: fmtT(tStart), stage: stage.key, kind: 'begin', label, elapsed_ms: 0 }])
-    out.push(['log', { t: fmtT(tStart), stage: stage.key.toUpperCase(), message: stage.log }])
+    out.push(['log', { t: fmtT(tStart), stage: stage.key, message: stage.log }])
     out.push(['progress', { stage: stage.key, pct: ((idx + 1) / MOCK_STAGES.length) * 100 }])
     out.push(['checkpoint', { t: fmtT(tStart + STAGE_DURATION_MS - 1), stage: stage.key, kind: 'end', label, elapsed_ms: STAGE_DURATION_MS }])
   })
