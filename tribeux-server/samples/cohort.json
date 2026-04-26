@@ -1,0 +1,26 @@
+{
+  "cohort_id": "n30_landing_pages_v0",
+  "n": 30,
+  "sites": [
+    "airbnb", "stripe", "linear", "nytimes", "apple",
+    "notion", "figma", "substack", "duolingo", "github",
+    "vercel", "supabase", "arc", "pitchfork", "anthropic",
+    "perplexity", "are.na", "shopify", "patagonia", "spotify",
+    "openai", "framer", "nike", "deliveroo", "uber",
+    "lyft", "discord", "vimeo", "reddit", "wikipedia"
+  ],
+  "axes": ["attention", "self_relevance", "reward", "disgust"],
+  "axis_stats": {
+    "attention":      { "mean":  0.0166, "std": 0.0796 },
+    "self_relevance": { "mean": -0.0512, "std": 0.0282 },
+    "reward":         { "mean": -0.0205, "std": 0.0191 },
+    "disgust":        { "mean":  0.0376, "std": 0.0698 }
+  },
+  "interpretation": {
+    "attention":      "fronto-parietal · D29",
+    "self_relevance": "DMN · precuneus",
+    "reward":         "ventral striatum · VTA",
+    "disgust":        "insula · orbitofrontal"
+  },
+  "notes": "Stats fitted on the same scoring as samples/site_1.json. cohort_z = (raw_score - mean)/std; positive means 'above benchmark', negative means 'below'."
+}
