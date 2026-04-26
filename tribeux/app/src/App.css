@@ -2421,6 +2421,7 @@
 .pitch__demo-frame img {
   width: 100%; height: 100%;
   object-fit: cover;
+  object-position: top center;
   display: block;
 }
 .pitch__demo-frame--before img { filter: grayscale(0.55) contrast(0.9) brightness(0.96); }
