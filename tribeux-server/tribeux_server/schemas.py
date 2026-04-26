@@ -169,6 +169,11 @@ class Report(BaseModel):
     applied_patches: list[AppliedPatch]
     screenshot_v1_data_url: Optional[str] = None
     screenshot_v2_data_url: Optional[str] = None
+    # Inline mp4 (data: URL) of the recorded scrolls. v2 only present
+    # when at least one Claude patch landed and the patched page was
+    # successfully re-rendered.
+    video_v1_data_url: Optional[str] = None
+    video_v2_data_url: Optional[str] = None
     predicted_uplift_per_axis: dict[str, float]
     overall_predicted_uplift: float
 

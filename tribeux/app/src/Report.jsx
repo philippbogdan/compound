@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
 import { useJob } from './lib/useAnalysis'
@@ -147,8 +147,15 @@ function Loading({ label }) {
 
 export default function Report() {
   const [params] = useSearchParams()
+  const nav = useNavigate()
   const jobId = params.get('job')
   const { job, error } = useJob(jobId)
+
+  const repeatAnalysis = () => {
+    const url = job?.url || job?.result?.url
+    if (!url) return
+    nav(`/demo?url=${encodeURIComponent(url)}`)
+  }
 
   if (!jobId) return <Loading label="NO JOB ID — START A SCAN" />
   if (error) return <Loading label={`ERROR · ${error}`} />
@@ -369,7 +376,16 @@ export default function Report() {
           <div className="diff">
             <div className="diff__side">
               <span className="diff__side__stamp">v1 · current</span>
-              {result.screenshot_v1_data_url ? (
+              {result.video_v1_data_url ? (
+                <video
+                  src={result.video_v1_data_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  style={diffImgStyle}
+                />
+              ) : result.screenshot_v1_data_url ? (
                 <img src={result.screenshot_v1_data_url} alt="Current site"
                   style={diffImgStyle} />
               ) : (
@@ -379,7 +395,16 @@ export default function Report() {
             </div>
             <div className="diff__side is-after">
               <span className="diff__side__stamp">v2 · proposed</span>
-              {result.screenshot_v2_data_url ? (
+              {result.video_v2_data_url ? (
+                <video
+                  src={result.video_v2_data_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  style={diffImgStyle}
+                />
+              ) : result.screenshot_v2_data_url ? (
                 <img src={result.screenshot_v2_data_url} alt="Proposed redesign"
                   style={diffImgStyle} />
               ) : (
@@ -408,6 +433,15 @@ export default function Report() {
           <button className="btn btn--xl">
             Download v2 patch
             <span className="btn__tag">Free for the demo</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={repeatAnalysis}
+            style={{ textDecoration: 'none' }}
+          >
+            ↻ Repeat analysis
+            <span className="btn__tag">{result.url}</span>
           </button>
           <Link to="/" className="btn btn--ghost" style={{ textDecoration: 'none' }}>
             Scan another site

@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
+import json
 import os
 from typing import Any
 
@@ -26,6 +27,48 @@ from .schemas import (
     PatchProposal,
     Report,
 )
+
+
+def _normalize_url(url: str) -> str:
+    """Prepend https:// when the user types a bare hostname.
+
+    The Demo page accepts pasted strings ("stripe.com", "airbnb.com")
+    and forwards them verbatim. Playwright then crashes with an
+    obscure "net::ERR_ABORTED" instead of trying https. Normalise here
+    so every downstream stage sees a fully-qualified URL.
+    """
+    s = (url or "").strip()
+    if not s:
+        return s
+    if s.startswith("//"):
+        return "https:" + s
+    if not s.startswith(("http://", "https://")):
+        return "https://" + s
+    return s
+
+
+def _build_patch_script(patches: list[PatchProposal]) -> str:
+    """Build a single JS snippet that applies every Claude patch.
+
+    Run inside Playwright after page load (and again on the patched
+    re-render). Selectors come straight from Claude's response — we
+    JSON-encode them defensively so quoting bugs in Claude's output
+    don't break the script.
+    """
+    if not patches:
+        return ""
+    lines = ["(() => {"]
+    for p in patches:
+        sel = json.dumps(p.selector)
+        html = json.dumps(p.after_html)
+        lines.append(
+            "  try {"
+            f"    const el = document.querySelector({sel});"
+            f"    if (el) el.outerHTML = {html};"
+            "  } catch (e) { console.warn('patch failed', e); }"
+        )
+    lines.append("})();")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +183,7 @@ STAGE_LABELS = {
 
 
 async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
+    url = _normalize_url(url)
     log = lambda stage, msg: jobs.store.log(job_id, stage, msg)
     prog = lambda stage, pct: jobs.store.progress(job_id, stage, pct)
 
@@ -165,20 +209,29 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
 
         video_path: str | None = None
         page_text = ""
+        # Pre-init so a render failure can't UnboundLocalError downstream.
+        v1_frames: list[Frame] = []
         async with stage("encode"):
             prog("encode", 0.18)
             if use_real_render:
-                log("encode", "url_to_video · 15s scroll · 256² @ 30fps")
-                rendered = await render.render_url(url, duration=15)
-                video_path = rendered["video_path"]
-                page_text = rendered["page_text"]
-                v1_frames = rendered["frames"]
-                full_screenshot_v1 = rendered["full_page_png"] or full_screenshot_v1
-                log("encode", f"video {video_path} · {len(page_text)} chars text · {len(v1_frames)} frame(s)")
+                log("encode", "url_to_video · 10s scroll · 256² @ 30fps")
+                try:
+                    rendered = await render.render_url(url, duration=10)
+                    video_path = rendered["video_path"]
+                    page_text = rendered["page_text"]
+                    v1_frames = rendered["frames"]
+                    full_screenshot_v1 = rendered["full_page_png"] or full_screenshot_v1
+                    log("encode", f"video {video_path} · {len(page_text)} chars text · {len(v1_frames)} frame(s)")
+                except Exception as exc:  # noqa: BLE001
+                    log("encode", f"urltovideo failed → sample-frame fallback: {exc!r}")
+                    v1_frames, full_v1 = await frames.capture_frames(
+                        url, n_timesteps=10, use_real_render=False
+                    )
+                    full_screenshot_v1 = full_v1 or full_screenshot_v1
             else:
-                log("encode", "scroll capture · 13 timesteps · 256² downsample (sample mode)")
+                log("encode", "scroll capture · 10 timesteps · 256² downsample (sample mode)")
                 v1_frames, full_v1 = await frames.capture_frames(
-                    url, n_timesteps=13, use_real_render=False
+                    url, n_timesteps=10, use_real_render=False
                 )
                 full_screenshot_v1 = full_v1 or full_screenshot_v1
                 log("encode", f"captured {len(v1_frames)} frame(s)")
@@ -188,7 +241,13 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             prog("tribe", 0.35)
             mode = "live" if os.environ.get("TRIBE_INFERENCE_URL") and os.environ.get("MOCK_TRIBE", "0") not in ("1", "true", "True") else "stub"
             log("tribe", f"tribev2.{mode} · POST /score · {len(v1_frames)} frames" + (f" · video={video_path}" if video_path else ""))
-            v1 = await inference.run_tribe_inference(url, v1_frames, label=url, video_path=video_path)
+            v1 = await inference.run_tribe_inference(
+                url,
+                v1_frames,
+                label=url,
+                video_path=video_path,
+                log=lambda msg: jobs.store.log(job_id, "tribe", msg),
+            )
             log("tribe", "v1 headline cohort_z = " + _fmt_cohort(v1))
             await beat()
 
@@ -209,8 +268,13 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
                 "claude",
                 "anthropic.messages.create · sending time-series + per-second frames + units",
             )
-            findings = claude_analyst.analyze(
-                inference=v1, frames=v1_frames, cohort=cohort, units=units
+            findings = await asyncio.to_thread(
+                claude_analyst.analyze,
+                inference=v1,
+                frames=v1_frames,
+                cohort=cohort,
+                units=units,
+                log=lambda msg: jobs.store.log(job_id, "claude", msg),
             )
             log(
                 "claude",
@@ -218,7 +282,7 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
                 f"{len(findings.anomalies)} anomaly · {len(findings.patches)} patch",
             )
             for a in findings.anomalies:
-                log("claude", f"anomaly[{a.axis}] t={a.t_start}-{a.t_end} σ={a.severity:.2f}")
+                log("claude", f"anomaly[{a.axis}] t={a.t_start}s-{a.t_end}s σ={a.severity:.2f}")
             await beat()
 
         async with stage("frames"):
@@ -230,6 +294,7 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             prog("compose", 0.9)
             applied: list[AppliedPatch] = []
             full_v2: bytes | None = None
+            video_v2_path: str | None = None
             for p in findings.patches:
                 if use_real_render:
                     ok, err, png = await _apply_patch_live(url, p)
@@ -243,6 +308,24 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
                 else:
                     applied.append(AppliedPatch(proposal=p, applied=False, error="sample-mode"))
                     log("compose", f"patch {p.unit_id} · {p.target_axis} · queued (sample-mode)")
+
+            # If at least one patch landed, re-render the patched site
+            # to a 10s mp4 so the Report can play back the v2 alongside
+            # the original. The combined patch_script applies every
+            # accepted patch in one Playwright session.
+            landed = [ap.proposal for ap in applied if ap.applied]
+            if use_real_render and landed:
+                patch_script = _build_patch_script(landed)
+                try:
+                    log("compose", f"re-rendering patched page · {len(landed)} patch(es)")
+                    rerender = await render.render_url(
+                        url, duration=10, patch_script=patch_script
+                    )
+                    video_v2_path = rerender["video_path"]
+                    full_v2 = rerender["full_page_png"] or full_v2
+                    log("compose", f"patched video {video_v2_path}")
+                except Exception as exc:  # noqa: BLE001
+                    log("compose", f"patched re-render failed: {exc!r}")
 
             # v2 inference: shift cohort_z + time-series by Claude's predicted uplift
             uplift_per_axis: dict[str, float] = {"attention": 0.0, "self_relevance": 0.0, "reward": 0.0, "disgust": 0.0}
@@ -267,6 +350,8 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             applied_patches=applied,
             screenshot_v1_data_url=_png_to_data_url(full_screenshot_v1),
             screenshot_v2_data_url=_png_to_data_url(full_v2),
+            video_v1_data_url=render.video_to_data_url(video_path) if video_path else None,
+            video_v2_data_url=render.video_to_data_url(video_v2_path) if video_v2_path else None,
             predicted_uplift_per_axis=uplift_per_axis,
             overall_predicted_uplift=signed,
         )

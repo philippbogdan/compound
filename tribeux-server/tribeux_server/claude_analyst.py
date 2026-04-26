@@ -66,17 +66,36 @@ def analyze(
     frames: list[Frame],
     cohort: Cohort,
     units: list[dict[str, Any]],
+    log: "callable | None" = None,
 ) -> ClaudeFindings:
-    """Run the analyst. Falls back to a deterministic mock when keys/env say so."""
+    """Run the analyst. Falls back to a deterministic mock when keys/env say so.
+
+    `log(message)` surfaces inline status in the SSE stream — used to
+    expose live-call failures that would otherwise only show as a
+    summary prefix in the final report.
+    """
+    def _say(msg: str) -> None:
+        if log is not None:
+            try:
+                log(msg)
+            except Exception:  # noqa: BLE001
+                pass
+
     use_mock = (
         os.environ.get("MOCK_CLAUDE", "1") not in ("0", "false", "False")
         or not os.environ.get("ANTHROPIC_API_KEY")
     )
     if use_mock:
+        reason = "MOCK_CLAUDE=1" if os.environ.get("MOCK_CLAUDE", "1") not in ("0", "false", "False") else "ANTHROPIC_API_KEY missing"
+        _say(f"using deterministic mock ({reason})")
         return _mock(inference=inference, cohort=cohort, units=units)
     try:
-        return _live(inference=inference, frames=frames, cohort=cohort, units=units)
+        _say(f"calling anthropic ({os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')}) with {len(frames)} frame(s)")
+        out = _live(inference=inference, frames=frames, cohort=cohort, units=units)
+        _say(f"anthropic returned · {len(out.anomalies)} anomaly · {len(out.patches)} patch")
+        return out
     except Exception as exc:  # noqa: BLE001 — fail soft, never break the demo
+        _say(f"anthropic call failed → mock fallback: {exc!r}")
         out = _mock(inference=inference, cohort=cohort, units=units)
         return out.model_copy(update={"summary": f"[live call failed → mock] {exc}\n\n{out.summary}"})
 
@@ -278,21 +297,38 @@ def _mock(
 
 _PROMPT = """You are TribeUX's anomaly analyst.
 
-You receive:
-  - per-axis time-series (z-scored vs an n=30 landing-page cohort)
-  - per-axis headline cohort_z + percentile
-  - one image per timestep (frame_at_<t>s)
-  - a list of DOM units with id, section, selector, importance, outer_html, text
+INPUTS
+  - per-axis time-series (z-scored vs an n=30 landing-page cohort).
+    Each array is **one value per second** of the recorded scroll.
+    Index 0 is t=0s, index 1 is t=1s, ... index N-1 is t=(N-1)s.
+  - per-axis headline cohort_z + percentile (single scalar over the run).
+  - one image per second (`frame_at_<t>s`), aligned 1:1 to the time-series indices.
+  - a list of DOM units with id, section, selector, importance, outer_html, text.
 
-Your job is to:
-  1) Identify the most misaligned timestep windows per axis.
-     Disgust: large positive cohort_z is bad. The other three: large negative is bad.
-  2) Choose up to 3 DOM units to edit and propose new_html for each.
-  3) Estimate the change in cohort_z on the targeted axis.
+WHAT TO DO
+  1) Walk every axis's time-series and identify the second(s) where the
+     signal is most misaligned with the cohort:
+       - Disgust: large POSITIVE cohort_z is bad.
+       - Attention / self_relevance / reward: large NEGATIVE cohort_z is bad.
+     Each anomaly window has integer second bounds (`t_start`, `t_end`),
+     inclusive, where `0 <= t_start <= t_end < len(time_series)`. For a
+     spike at a single second, set t_start == t_end.
+  2) Look at `frame_at_<t>s` for every second inside each anomaly
+     window and use what you SEE on the page to write the rationale —
+     reference the actual visible elements (hero copy, CTA color, dense
+     blocks, whitespace, visual noise, etc.).
+  3) Propose up to 3 DOM unit edits ranked by expected uplift. Each
+     `selector` MUST come from the supplied `units` list verbatim. The
+     `after_html` MUST be valid HTML that fits inside the original
+     selector. Estimate the cohort_z delta on the target axis honestly
+     — small (0.10–0.40) is realistic, large (>0.8) is suspicious.
+  4) `asked_for_frame_indices` is the union of every frame second you
+     used as evidence (the seconds you actually looked at in the
+     anomaly windows). Sorted ascending, deduplicated.
 
 Return JSON exactly matching this schema (no prose, no code fences):
 {
-  "summary": "<one paragraph>",
+  "summary": "<one paragraph — what's wrong, what changed, expected uplift>",
   "anomalies": [
     {"axis": "...", "t_start": 0, "t_end": 0, "severity": 0.0,
      "headline": "...", "rationale": "...", "frame_indices": [0]}

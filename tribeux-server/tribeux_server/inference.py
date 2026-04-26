@@ -92,21 +92,37 @@ async def run_tribe_inference(
     label: str | None = None,
     pipeline_version: str = "tribeux_v0.1_stub",
     video_path: str | None = None,
+    log: "callable | None" = None,
 ) -> InferenceResult:
     """Score the rendered video for `url` and return an `InferenceResult`.
 
     Prefers `video_path` when provided (mp4 produced by `render.render_url`).
     Falls back to encoding `frames` into an mp4 with ffmpeg.
+
+    `log(message)` is called with one-line status updates that should
+    surface in the SSE log (so live-mode failures are visible to the
+    operator, not silently degraded).
     """
+    def _say(msg: str) -> None:
+        if log is not None:
+            try:
+                log(msg)
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            print(f"[inference] {msg}", file=sys.stderr)
+
     if _use_real_tribe() and (video_path or frames):
         try:
             if video_path:
                 from pathlib import Path as _Path
                 video = _Path(video_path).read_bytes()
                 filename = _Path(video_path).name
+                _say(f"posting video {filename} ({len(video)/1024:.1f} KB) → /score")
             else:
                 video = await asyncio.to_thread(_frames_to_mp4, frames)
                 filename = "frames.mp4"
+                _say(f"posting frames.mp4 ({len(video)/1024:.1f} KB) → /score")
             data = await _post_score(video, label=label or site_id, filename=filename)
             data.setdefault("metadata", {})
             data["metadata"]["url_or_description"] = url
@@ -114,9 +130,13 @@ async def run_tribe_inference(
                 "%Y-%m-%dT%H:%M:%S.%fZ"
             )
             data["metadata"]["pipeline_version"] = "tribeux_v0.1_live"
+            _say("/score returned 200 · live inference accepted")
             return InferenceResult.model_validate(data)
         except Exception as exc:  # noqa: BLE001
-            print(f"[inference] live /score failed, falling back to stub: {exc!r}", file=sys.stderr)
+            # Surface the failure to the SSE log so the operator sees
+            # the degradation; the pipeline still completes against the
+            # stub so the demo doesn't break.
+            _say(f"/score live call failed → stub fallback: {exc!r}")
 
     base = copy.deepcopy(_base_inference())
     base["site_id"] = site_id

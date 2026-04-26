@@ -18,14 +18,26 @@ import {
 
 const BASE = '/api'
 
-export async function startAnalysis(url, { useRealRender = false } = {}) {
+export async function startAnalysis(url, { useRealRender } = {}) {
   if (isMockEnabled()) return startMockAnalysis(url)
+  // Only send `use_real_render` when the caller explicitly opts in or
+  // out. Omitting the field lets the server's `AnalyzeRequest` default
+  // (`True`) win — the live render is what we actually want for every
+  // user-driven scan, and the previous `false` default here was
+  // silently masking the live pipeline.
+  const body = { url }
+  if (typeof useRealRender === 'boolean') body.use_real_render = useRealRender
   const res = await fetch(`${BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, use_real_render: useRealRender }),
+    body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`POST /api/analyze failed: ${res.status}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    const trimmed = detail.replace(/\s+/g, ' ').slice(0, 240)
+    const suffix = trimmed ? ` — ${trimmed}` : ''
+    throw new Error(`POST /api/analyze failed: ${res.status}${suffix}`)
+  }
   return res.json()
 }
 
