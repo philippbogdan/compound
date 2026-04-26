@@ -3115,6 +3115,16 @@
   flex-direction: column;
   gap: 18px;
   position: relative;
+  justify-content: center;
+  min-height: 100%;
+}
+
+/* Bare arch-only variant: pure diagram, vertically centred. */
+.pitch__slide--arch-bare {
+  align-items: center;
+}
+.pitch__slide--arch-bare .pitch__arch-flow {
+  margin-top: 0;
 }
 
 .pitch__arch-flow {
@@ -3142,13 +3152,15 @@
   opacity: 0.6;
 }
 
-/* Each box-node — the boxes that hold URL, video, brain, graph, html */
+/* Each box-node — the boxes that hold URL, video, brain, graph, html.
+   min-height equalises the row so all five boxes share a baseline. */
 .pitch__arch-node {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
+  gap: 8px;
+  padding: 14px;
   min-width: 0;
+  min-height: 168px;
   background: var(--paper-2);
   border: 2px solid var(--ink);
   box-shadow: var(--shadow-hard-sm);
@@ -3451,6 +3463,13 @@
 
 /* Cover slide reuses .landing__* classes; this is just a tighter
    meta block for hackathon credits below the lede. */
+.pitch__slide--cover {
+  align-content: center;
+  min-height: 100%;
+}
+.pitch__slide--cover .landing__grid {
+  align-items: center;
+}
 .pitch__slide--cover .landing__lede { margin-bottom: 24px; }
 
 .pitch__cover-meta {
