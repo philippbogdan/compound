@@ -17,7 +17,7 @@ import dataclasses
 import os
 from typing import Any
 
-from . import claude_analyst, frames, inference, jobs, render
+from . import claude_analyst, frames, inference, jobs, render, cache
 from .cohort import load_cohort
 from .schemas import (
     AppliedPatch,
@@ -174,6 +174,35 @@ async def run_pipeline(
             f"iteration {iteration_index} · parent={parent_job_id} · "
             f"{len(prior_history)} prior edit(s) being replayed",
         )
+
+    # DEMO CACHE: if TRIBEUX_CACHE=1 and there's a hit for (url, patch_script),
+    # fast-replay the cached job so the UI still narrates stages but each pass
+    # completes in ~3-5 s instead of a full Colab round-trip.
+    cache_key = cache.key_for(url, patch_script or "")
+    if cache.enabled() and not cache.bypass():
+        hit = cache.get(cache_key)
+        if hit is not None:
+            await _replay_cached(job_id, url, parent_job_id, iteration_index, hit)
+            return
+
+    # Live pipeline — collect SSE events into parallel lists so we can cache them.
+    cached_logs: list[dict] = []
+    cached_checkpoints: list[dict] = []
+    cached_progress: list[dict] = []
+
+    _orig_log = log
+    _orig_prog = prog
+
+    def log(stage: str, msg: str) -> None:  # noqa: F811 — intentional shadow
+        cached_logs.append({"stage": stage, "message": msg})
+        _orig_log(stage, msg)
+
+    def prog(stage: str, pct: float) -> None:  # noqa: F811 — intentional shadow
+        cached_progress.append({"stage": stage, "pct": pct})
+        _orig_prog(stage, pct)
+
+    # Tap checkpoint events via the jobs.stage context manager's side effects
+    # by inspecting job state after each stage end; simpler: snapshot at finish.
 
     try:
         async with stage("render"):
@@ -349,6 +378,18 @@ async def run_pipeline(
             job_id, "done", "end", STAGE_LABELS["done"], elapsed_ms=0
         )
         jobs.store.finish(job_id, report)
+
+        # Cache the completed job for future demo re-runs.
+        if cache.enabled():
+            current_job = jobs.store.get(job_id)
+            cps = [cp.model_dump() for cp in (current_job.checkpoints if current_job else [])]
+            cache.put(
+                cache_key,
+                report=report,
+                logs=cached_logs,
+                checkpoints=cps,
+                progress_trace=cached_progress,
+            )
     except Exception as exc:  # noqa: BLE001
         # Emit the human-readable log line BEFORE marking the job failed.
         # `fail()` broadcasts a terminal `done` event that causes SSE
@@ -365,3 +406,60 @@ def _fmt_cohort(r: InferenceResult) -> str:
         f"att {cohort.attention.cohort_z:+.2f} · self {cohort.self_relevance.cohort_z:+.2f} "
         f"· reward {cohort.reward.cohort_z:+.2f} · disgust {cohort.disgust.cohort_z:+.2f}"
     )
+
+
+_CACHE_STAGE_BEAT_S = float(os.environ.get("TRIBEUX_CACHE_STAGE_BEAT_S", "0.35"))
+
+
+async def _replay_cached(
+    job_id: str,
+    url: str,
+    parent_job_id: str | None,
+    iteration_index: int,
+    hit: dict,
+) -> None:
+    """Replay a cached job's SSE stream at demo pace (~3-5 s total).
+
+    We issue the same progress + log events the live pipeline emitted so
+    the Demo page still animates through all stages; just faster.
+    """
+    report_dict = hit.get("report") or {}
+    cached_logs = hit.get("logs") or []
+    cached_progress = hit.get("progress_trace") or []
+
+    jobs.store.log(job_id, "render", "CACHE HIT · replaying from disk")
+
+    # Reproduce progress events in order with a short beat between stages.
+    emitted_stages: set[str] = set()
+    for entry in cached_progress:
+        stage = entry.get("stage", "")
+        pct = float(entry.get("pct", 0.0))
+        jobs.store.progress(job_id, stage, pct)
+        if stage not in emitted_stages:
+            emitted_stages.add(stage)
+            label = STAGE_LABELS.get(stage, stage.upper()) + " · CACHED"
+            jobs.store.checkpoint(job_id, stage, "begin", label, elapsed_ms=0)
+        # Dribble the stage's logs as we hit its progress marker.
+        for lg in cached_logs:
+            if lg.get("stage") == stage and lg.get("message"):
+                jobs.store.log(job_id, stage, lg["message"])
+        await asyncio.sleep(_CACHE_STAGE_BEAT_S)
+        jobs.store.checkpoint(job_id, stage, "end",
+                              STAGE_LABELS.get(stage, stage.upper()) + " · CACHED",
+                              elapsed_ms=int(_CACHE_STAGE_BEAT_S * 1000))
+
+    # Rehydrate Report with the current iteration context (parent / iter_index
+    # from THIS call, not the cached one — patch chain-awareness).
+    report_dict["url"] = url
+    report_dict["parent_job_id"] = parent_job_id
+    report_dict["iteration_index"] = iteration_index
+    try:
+        report = Report.model_validate(report_dict)
+    except Exception as exc:  # noqa: BLE001 — fall through to fail if corrupt
+        jobs.store.fail(job_id, f"cache replay decode failed: {exc!r}")
+        return
+
+    jobs.store.log(job_id, "done", "cached replay complete")
+    jobs.store.checkpoint(job_id, "done", "end", STAGE_LABELS["done"] + " · CACHED",
+                          elapsed_ms=0)
+    jobs.store.finish(job_id, report)
