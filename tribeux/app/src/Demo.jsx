@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import BrainCanvas from './BrainCanvas'
+import { EASE_OUT_QUINT, PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
 
 const STAGES = [
   { key: 'render',    label: 'RENDER',     long: 'Scrolling capture',                 ms:  9000 },
@@ -12,6 +14,10 @@ const STAGES = [
   { key: 'frames',    label: 'FRAMES',     long: 'Pull frames for inspection',        ms:  3000 },
   { key: 'compose',   label: 'COMPOSE',    long: 'Write findings',                    ms:  4000 },
 ]
+
+// Stages where the live benchmark sparkline should pause so it doesn't
+// compete with what the user is supposed to be reading.
+const QUIET_STAGES = new Set(['claude', 'compose'])
 
 const LOG_ENTRIES = [
   ['00:00', 'render',    'playwright.chromium.headless · viewport 1440×900 · devicePixelRatio 2'],
@@ -29,6 +35,8 @@ const LOG_ENTRIES = [
   ['00:41', 'compose',   'patch.figma → variant v2 · predicted_uplift=+0.14'],
 ]
 
+const VERDICT_BEAT_MS = 1400
+
 export default function Demo() {
   const [params] = useSearchParams()
   const nav = useNavigate()
@@ -38,59 +46,77 @@ export default function Demo() {
 
   const [activeIdx, setActiveIdx] = useState(0)
   const [visibleLogs, setVisibleLogs] = useState(1)
-  const [bars, setBars] = useState(() => Array(24).fill(18))
+  const [bars, setBars] = useState(() => Array(24).fill(0.3))
   const tRef = useRef(0)
 
+  const isComplete = activeIdx >= STAGES.length
+  const activeKey = STAGES[Math.min(activeIdx, STAGES.length - 1)].key
+  const sparklineQuiet = !isComplete && QUIET_STAGES.has(activeKey)
+
   useEffect(() => {
-    if (activeIdx >= STAGES.length) {
-      const t = setTimeout(() => nav('/report'), 1200)
+    if (isComplete) {
+      const t = setTimeout(() => nav('/report'), VERDICT_BEAT_MS)
       return () => clearTimeout(t)
     }
     const dur = STAGES[activeIdx].ms * 0.35
     const t = setTimeout(() => setActiveIdx(i => i + 1), dur)
     return () => clearTimeout(t)
-  }, [activeIdx, nav])
+  }, [activeIdx, isComplete, nav])
 
   useEffect(() => {
+    if (isComplete) return undefined
     const t = setInterval(() => {
       setVisibleLogs(v => Math.min(v + 1, LOG_ENTRIES.length))
     }, 900)
     return () => clearInterval(t)
-  }, [])
+  }, [isComplete])
 
   useEffect(() => {
+    if (sparklineQuiet || isComplete) return undefined
     const t = setInterval(() => {
       setBars(prev => {
         const next = prev.slice(1)
         tRef.current += 0.18
-        const y = 28 + Math.sin(tRef.current) * 16 + Math.sin(tRef.current * 2.3) * 6 + (Math.random() - 0.5) * 8
-        next.push(Math.max(4, Math.min(60, y)))
+        const y = 0.45 + Math.sin(tRef.current) * 0.27 + Math.sin(tRef.current * 2.3) * 0.09 + (Math.random() - 0.5) * 0.12
+        next.push(Math.max(0.08, Math.min(1, y)))
         return next
       })
-    }, 160)
+    }, sparklineQuiet ? 320 : 200)
     return () => clearInterval(t)
-  }, [])
+  }, [sparklineQuiet, isComplete])
 
   const currentCopy = useMemo(() => STAGES[Math.min(activeIdx, STAGES.length - 1)], [activeIdx])
 
   return (
-    <section className="scan">
+    <motion.section
+      className="scan"
+      variants={PAGE_VARIANTS}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={PAGE_TRANSITION}
+    >
       <aside className="scan__chrono" aria-label="Pipeline stages">
         <h4>Pipeline</h4>
-        {STAGES.map((s, i) => (
-          <div
-            key={s.key}
-            className={
-              'stage-row ' +
-              (i < activeIdx ? 'is-done ' : '') +
-              (i === activeIdx ? 'is-active ' : '')
-            }
-          >
-            <span className="stage-row__num">{String(i + 1).padStart(2, '0')}</span>
-            <span>{s.label}</span>
-            <span className="stage-row__dur">{(s.ms / 1000).toFixed(0)}s</span>
-          </div>
-        ))}
+        {STAGES.map((s, i) => {
+          const done = i < activeIdx
+          const active = i === activeIdx
+          return (
+            <div
+              key={s.key}
+              className={
+                'stage-row ' +
+                (done ? 'is-done ' : '') +
+                (active ? 'is-active ' : '')
+              }
+              style={{ '--stage-ms': `${Math.round(s.ms * 0.35)}ms` }}
+            >
+              <span className="stage-row__num">{String(i + 1).padStart(2, '0')}</span>
+              <span>{s.label}</span>
+              <span className="stage-row__dur">{(s.ms / 1000).toFixed(0)}s</span>
+            </div>
+          )
+        })}
       </aside>
 
       <div className="scan__main">
@@ -102,25 +128,69 @@ export default function Demo() {
         <div className="scan__target">
           <span className="scan__target__label">Target</span>
           <span className="scan__target__value">{urlFromQuery}</span>
-          <span className="scan__target__label">Step {activeIdx + 1}/{STAGES.length}</span>
+          <span className="scan__target__label">
+            {isComplete ? 'Verdict' : `Step ${activeIdx + 1}/${STAGES.length}`}
+          </span>
         </div>
 
         <div className="scan__video">
           <div className="scan__video-frame" aria-label="256 by 256 stimulus preview">
-            {isStripe ? (
-              <video
-                src="/stripe-scan.mp4"
-                autoPlay muted loop playsInline
-                className="scan__video-media"
-              />
-            ) : null}
+            <AnimatePresence>
+              {isStripe && (
+                <motion.video
+                  key="stimulus-stripe"
+                  src="/stripe-scan.mp4"
+                  autoPlay muted loop playsInline
+                  className="scan__video-media"
+                  initial={{ opacity: 0, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, filter: 'blur(6px)' }}
+                  transition={{ duration: 0.34, ease: EASE_OUT_QUINT }}
+                />
+              )}
+            </AnimatePresence>
+            <span className="scan__video-frame__sweep" aria-hidden="true" />
             <span className="scan__video-frame__stamp">256 × 256</span>
             <span className="scan__video-frame__time">t = {(activeIdx * 0.6).toFixed(1)}s</span>
+
+            <AnimatePresence>
+              {isComplete && (
+                <motion.div
+                  key="verdict-overlay"
+                  className="scan__verdict-overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.22, ease: EASE_OUT_QUINT }}
+                >
+                  <motion.span
+                    className="scan__verdict-overlay__tape"
+                    initial={{ opacity: 0, y: -10, rotate: -6 }}
+                    animate={{ opacity: 1, y: 0, rotate: -2 }}
+                    transition={{ duration: 0.36, ease: EASE_OUT_QUINT, delay: 0.05 }}
+                  >
+                    FIG. 02 — VERDICT
+                  </motion.span>
+                  <motion.span
+                    className="scan__verdict-overlay__num"
+                    initial={{ opacity: 0, scale: 0.7, filter: 'blur(8px)' }}
+                    animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                    transition={{ duration: 0.5, ease: EASE_OUT_QUINT, delay: 0.12 }}
+                  >
+                    −1.74σ
+                  </motion.span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <dl className="scan__meta">
             <dt>Now running</dt>
             <dd>
-              <span className="flame">{currentCopy.label}</span> · {currentCopy.long}
+              {isComplete ? (
+                <><span className="flame">VERDICT</span> · routing to report</>
+              ) : (
+                <><span className="flame">{currentCopy.label}</span> · {currentCopy.long}</>
+              )}
             </dd>
             <dt>Stimulus</dt>
             <dd>4.8 s scrolling film · 24 fps · downsampled</dd>
@@ -141,7 +211,7 @@ export default function Demo() {
       </div>
 
       <aside className="scan__aside">
-        <div className="scan__aside__section">
+        <div className={'scan__aside__section' + (isComplete ? ' is-fading' : '')}>
           <h5>Live cortex · fsaverage5</h5>
           <div className="scan__brain">
             <BrainCanvas width={268} height={268} autoRotate brightness={1.05} />
@@ -156,7 +226,7 @@ export default function Demo() {
           <h5>Benchmark · live</h5>
           <div className="benchmark-sparkline" aria-hidden="true">
             {bars.map((h, i) => (
-              <div key={i} style={{ height: `${h}px` }} />
+              <div key={i} style={{ '--h': h.toFixed(3) }} />
             ))}
           </div>
           <p style={{
@@ -180,6 +250,6 @@ export default function Demo() {
           </p>
         </div>
       </aside>
-    </section>
+    </motion.section>
   )
 }

@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
 
 const EMOTIONS = [
   { key: 'attention',  name: 'Attention',          meta: 'FRONTO-PARIETAL · D29',    z: -1.28, friction: false },
@@ -85,7 +87,14 @@ function StarburstBadge() {
 
 export default function Report() {
   return (
-    <section className="report">
+    <motion.section
+      className="report"
+      variants={PAGE_VARIANTS}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={PAGE_TRANSITION}
+    >
       <div className="report__header">
         <div>
           <div className="report__eyebrow">
@@ -141,19 +150,19 @@ export default function Report() {
           </div>
 
           <div className="frames">
-            <div className="frame is-flagged">
+            <div className="frame is-flagged" style={{ '--frame-i': 0 }}>
               <span className="frame__stamp">048</span>
               <span className="frame__tag">reward ↓</span>
             </div>
-            <div className="frame is-flagged">
+            <div className="frame is-flagged" style={{ '--frame-i': 1 }}>
               <span className="frame__stamp">101</span>
               <span className="frame__tag">friction ↑</span>
             </div>
-            <div className="frame">
+            <div className="frame" style={{ '--frame-i': 2 }}>
               <span className="frame__stamp">147</span>
               <span className="frame__tag">neutral</span>
             </div>
-            <div className="frame is-flagged">
+            <div className="frame is-flagged" style={{ '--frame-i': 3 }}>
               <span className="frame__stamp">189</span>
               <span className="frame__tag">conflict ↑</span>
             </div>
@@ -280,6 +289,6 @@ export default function Report() {
           </Link>
         </div>
       </div>
-    </section>
+    </motion.section>
   )
 }

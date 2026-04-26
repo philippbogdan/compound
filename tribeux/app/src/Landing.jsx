@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import UrlPill from './UrlPill'
+import { PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
 
 const BENCHMARK_SITES = [
   'airbnb', 'stripe', 'linear', 'nytimes', 'apple',
@@ -43,7 +45,14 @@ export default function Landing() {
   }
 
   return (
-    <section className="landing">
+    <motion.section
+      className="landing"
+      variants={PAGE_VARIANTS}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={PAGE_TRANSITION}
+    >
       <div className="landing__grid">
         <div>
           <div className="landing__tape">
@@ -87,7 +96,7 @@ export default function Landing() {
       </div>
 
       <div className="landing__plates" id="method">
-        <div className="plate">
+        <div className="plate" style={{ '--plate-i': 0 }}>
           <span className="plate__num" />
           <h3 className="plate__title">Render</h3>
           <p className="plate__body">
@@ -95,7 +104,7 @@ export default function Landing() {
             film. That's the stimulus.
           </p>
         </div>
-        <div className="plate">
+        <div className="plate" style={{ '--plate-i': 1 }}>
           <span className="plate__num" />
           <h3 className="plate__title">Infer</h3>
           <p className="plate__body">
@@ -103,7 +112,7 @@ export default function Landing() {
             across the Destrieux atlas, frame by frame.
           </p>
         </div>
-        <div className="plate">
+        <div className="plate" style={{ '--plate-i': 2 }}>
           <span className="plate__num" />
           <h3 className="plate__title">Compare</h3>
           <p className="plate__body">
@@ -111,7 +120,7 @@ export default function Landing() {
             corpus of 30 homepages.
           </p>
         </div>
-        <div className="plate">
+        <div className="plate" style={{ '--plate-i': 3 }}>
           <span className="plate__num" />
           <h3 className="plate__title">Interpret</h3>
           <p className="plate__body">
@@ -128,6 +137,6 @@ export default function Landing() {
           ))}
         </div>
       </div>
-    </section>
+    </motion.section>
   )
 }

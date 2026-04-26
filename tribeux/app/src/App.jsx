@@ -1,28 +1,34 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
 import Landing from './Landing'
 import Demo from './Demo'
 import Report from './Report'
 import { Masthead, Colophon } from './Shell'
 import './App.css'
 
-function Shell({ children }) {
+function AnimatedRoutes() {
+  const location = useLocation()
   return (
-    <div className="shell">
-      <Masthead />
-      <main>{children}</main>
-      <Colophon />
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location} key={location.pathname}>
+        <Route path="/"       element={<Landing />} />
+        <Route path="/demo"   element={<Demo />} />
+        <Route path="/report" element={<Report />} />
+      </Routes>
+    </AnimatePresence>
   )
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/"       element={<Shell><Landing /></Shell>} />
-        <Route path="/demo"   element={<Shell><Demo /></Shell>} />
-        <Route path="/report" element={<Shell><Report /></Shell>} />
-      </Routes>
+      <div className="shell">
+        <Masthead />
+        <main>
+          <AnimatedRoutes />
+        </main>
+        <Colophon />
+      </div>
     </BrowserRouter>
   )
 }
