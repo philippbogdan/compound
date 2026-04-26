@@ -1,4 +1,4 @@
-// tokens.jsx — design tokens + shared styles for TribeUX (Space Grotesk edition)
+// tokens.jsx — design tokens + shared styles for Compound (Space Grotesk edition)
 
 const TRIBE = {
   wash: '#E6EEF5',
