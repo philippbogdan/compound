@@ -205,8 +205,13 @@
   transform: translate(-3px, -3px);
   transition: transform 200ms var(--ease-out-5), box-shadow 200ms var(--ease-out-5);
 }
-.landing__pill-wrap:focus-within,
+/* Subtle hover — half the press of focus, so mouse-over feels alive without
+   pre-empting the focus state. Focus-within still settles fully into the page. */
 .landing__pill-wrap:hover {
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: var(--shadow-hard-sm);
+}
+.landing__pill-wrap:focus-within {
   transform: translate(0, 0);
   box-shadow: 0 0 0 var(--ink);
 }
@@ -1482,4 +1487,281 @@
   .scan__video-frame__sweep    { display: none; }
   .frame.is-flagged            { transform: rotate(-1.1deg); }
   .emotion-row__graph .live.is-friction { stroke-width: 2.4; }
+}
+
+/* =========================================================================
+   SCAN HANDOFF — Landing → Demo cinematic beat
+   The pill submit triggers ScanHandoff, which mounts a full-viewport overlay
+   on top of Landing. The landing itself fades + blurs (via .is-scanning).
+   The whole beat is 3400 ms; phases are encoded as animation-delay below.
+     0–560 ms  : overlay materialises, browser chrome rises into place
+   560–1040 ms : URL types in, scaffold blocks fade in staggered
+  1040–2560 ms : 2 px ink scanline sweeps top → bottom of the canvas
+  2560–2960 ms : --good wash flashes, ✓ STIMULUS LOCKED tape stamps
+  2960–3400 ms : caller's onComplete fires the route nav, AnimatePresence exits
+   ========================================================================= */
+
+.landing.is-scanning > .landing__grid,
+.landing.is-scanning > .landing__plates,
+.landing.is-scanning > .ticker {
+  transition: opacity 320ms var(--ease-out-5), filter 320ms var(--ease-out-5);
+  opacity: 0;
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.scan-handoff {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  background-image:
+    radial-gradient(var(--ink-whisper) 0.6px, transparent 0.7px);
+  background-size: 4px 4px;
+  pointer-events: auto;
+}
+
+.scan-handoff__stage {
+  width: min(880px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: handoff-stage-rise 760ms var(--ease-out-5) both;
+}
+@keyframes handoff-stage-rise {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.96); filter: blur(6px); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0); }
+}
+
+/* Browser chrome — looks like the pill grew up. */
+.scan-handoff__chrome {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: var(--shadow-hard);
+}
+.scan-handoff__lights {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.scan-handoff__lights em {
+  width: 10px; height: 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  display: inline-block;
+}
+.scan-handoff__lights em:nth-child(1) { background: var(--pulse); }
+.scan-handoff__lights em:nth-child(2) { background: var(--pow); }
+.scan-handoff__lights em:nth-child(3) { background: var(--good); }
+
+.scan-handoff__address {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 14px;
+  background: var(--paper-2);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  overflow: hidden;
+}
+.scan-handoff__scheme {
+  color: var(--ink-mute);
+}
+.scan-handoff__url {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Type the URL in like a teletype, capped at 28ch so even long URLs fit. */
+  max-width: 28ch;
+  width: fit-content;
+  animation: handoff-url-type 640ms steps(28, end) 560ms both;
+}
+@keyframes handoff-url-type {
+  0%   { width: 0; }
+  100% { width: 28ch; }
+}
+.scan-handoff__caret {
+  width: 1.5px;
+  height: 14px;
+  background: var(--ink);
+  margin-left: 2px;
+  animation: handoff-caret 1.05s steps(2, end) infinite;
+  animation-delay: 1200ms;
+}
+@keyframes handoff-caret {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.scan-handoff__step {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: var(--paper-2);
+  padding: 4px 8px;
+  border: 1.5px solid var(--ink-whisper);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Canvas — the "site" being scanned. Abstract scaffold, not a real preview. */
+.scan-handoff__canvas {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--paper-2);
+  overflow: hidden;
+  box-shadow: var(--shadow-hard);
+}
+
+.scan-handoff__scaffold {
+  position: absolute;
+  inset: 0;
+}
+.scan-handoff__block {
+  position: absolute;
+  background: var(--ink);
+  opacity: 0;
+  animation: handoff-block-in 560ms var(--ease-out-5) both;
+  /* Per-block stagger; capped so even 10+ blocks settle by ~1040ms. */
+  animation-delay: calc(560ms + var(--block-i, 0) * 44ms);
+}
+@keyframes handoff-block-in {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 0.86; transform: translateY(0); }
+}
+.scan-handoff__block--meta  { background: var(--ink-mute); height: 8px !important; opacity: 0.5; }
+.scan-handoff__block--h1    { background: var(--ink); }
+.scan-handoff__block--lede  { background: var(--ink-mute); opacity: 0.6; }
+.scan-handoff__block--cta   { background: var(--flame); }
+.scan-handoff__block--image { background: var(--ink-whisper); border: 1.5px solid var(--ink-mute); }
+.scan-handoff__block--foot  { background: var(--ink-mute); opacity: 0.4; }
+
+/* The 2px ink line that sweeps top → bottom. Dragging a faint wash with it. */
+.scan-handoff__scanline {
+  position: absolute;
+  left: -4px; right: -4px;
+  top: -2px;
+  height: 2px;
+  background: var(--ink);
+  box-shadow:
+    0 12px 0 -2px oklch(0.16 0.010 260 / 0.10),
+    0 24px 0 -4px oklch(0.16 0.010 260 / 0.06);
+  animation: handoff-scan 1520ms var(--ease-out-5) 1040ms forwards;
+  z-index: 3;
+  pointer-events: none;
+}
+/* Animate `top` so the percentage resolves against the canvas height
+   (translateY% would resolve against the line's own 2px height). */
+@keyframes handoff-scan {
+  0%   { top: -2px; }
+  100% { top: calc(100% + 12px); }
+}
+
+/* Halftone dot wash that intensifies as the scanline progresses. */
+.scan-handoff__halftone {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--ink) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  opacity: 0;
+  mix-blend-mode: multiply;
+  animation: handoff-halftone 1520ms linear 1040ms forwards;
+  pointer-events: none;
+  z-index: 2;
+}
+@keyframes handoff-halftone {
+  0%   { opacity: 0; }
+  60%  { opacity: 0.18; }
+  100% { opacity: 0.05; }
+}
+
+/* The green flash — "stimulus locked". One short hold, then fade. */
+.scan-handoff__flash {
+  position: absolute;
+  inset: 0;
+  background: oklch(0.78 0.18 145 / 0.45);
+  mix-blend-mode: multiply;
+  opacity: 0;
+  animation: handoff-flash 840ms var(--ease-out-5) 2560ms forwards;
+  pointer-events: none;
+  z-index: 4;
+}
+@keyframes handoff-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+
+/* The ✓ STIMULUS LOCKED tape stamp that lands during the green flash. */
+.scan-handoff__tape {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-3deg);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--good);
+  padding: 6px 14px;
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-hard-sm);
+  opacity: 0;
+  z-index: 5;
+  animation: handoff-tape 640ms var(--ease-out-5) 2640ms forwards;
+}
+@keyframes handoff-tape {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg) scale(0.7); }
+  60%  { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1.06); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1); }
+}
+
+.scan-handoff__readout {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-handoff__stage,
+  .scan-handoff__url,
+  .scan-handoff__block,
+  .scan-handoff__scanline,
+  .scan-handoff__halftone,
+  .scan-handoff__flash,
+  .scan-handoff__tape {
+    animation: none !important;
+  }
+  .scan-handoff__url        { width: 28ch; }
+  .scan-handoff__block      { opacity: 0.86; }
+  .scan-handoff__block--meta,
+  .scan-handoff__block--lede,
+  .scan-handoff__block--foot { opacity: 0.5; }
+  .scan-handoff__flash      { opacity: 0.35; }
+  .scan-handoff__tape       { opacity: 1; }
+  .scan-handoff__caret      { display: none; }
 }
