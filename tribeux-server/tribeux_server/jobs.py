@@ -31,7 +31,13 @@ class JobStore:
     def _now() -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    def create(self, url: str) -> Job:
+    def create(
+        self,
+        url: str,
+        *,
+        parent_job_id: Optional[str] = None,
+        iteration_index: int = 0,
+    ) -> Job:
         job_id = uuid.uuid4().hex[:12]
         now = self._now()
         job = Job(
@@ -43,6 +49,8 @@ class JobStore:
             progress=JobProgress(stage="queued", pct=0.0),
             logs=[],
             checkpoints=[],
+            parent_job_id=parent_job_id,
+            iteration_index=iteration_index,
         )
         with self._lock:
             self._jobs[job_id] = job

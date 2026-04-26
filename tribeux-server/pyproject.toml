@@ -11,6 +11,8 @@ dependencies = [
     "tribeux-domtree",
     "playwright>=1.40",
     "pillow>=10",
+    "moviepy==2.2.1",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]

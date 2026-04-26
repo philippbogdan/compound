@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -38,11 +39,87 @@ def health() -> dict[str, str]:
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
-    job = jobs.store.create(req.url)
-    asyncio.create_task(
-        pipeline.run_pipeline(job.id, req.url, use_real_render=req.use_real_render)
+    # Resolve the iteration index from the parent chain (if any).
+    parent_id = req.parent_job_id
+    iter_index = 0
+    if parent_id:
+        parent = jobs.store.get(parent_id)
+        if parent is not None:
+            iter_index = (parent.iteration_index or 0) + 1
+
+    job = jobs.store.create(
+        req.url,
+        parent_job_id=parent_id,
+        iteration_index=iter_index,
     )
+
+    if req.iterations and req.iterations > 1:
+        # Enqueue a chain: each child waits for its parent to finish.
+        asyncio.create_task(
+            _run_chain(
+                job_id=job.id,
+                url=req.url,
+                use_real_render=req.use_real_render,
+                parent_job_id=parent_id,
+                iteration_index=iter_index,
+                remaining=req.iterations - 1,
+            )
+        )
+    else:
+        asyncio.create_task(
+            pipeline.run_pipeline(
+                job.id,
+                req.url,
+                use_real_render=req.use_real_render,
+                parent_job_id=parent_id,
+                iteration_index=iter_index,
+            )
+        )
     return AnalyzeResponse(job_id=job.id)
+
+
+async def _run_chain(
+    *,
+    job_id: str,
+    url: str,
+    use_real_render: bool,
+    parent_job_id: Optional[str],
+    iteration_index: int,
+    remaining: int,
+) -> None:
+    """Run the first iteration, then spawn `remaining` more, each chained
+    off the previous. Stops early if a pass emits `done=true`.
+    """
+    await pipeline.run_pipeline(
+        job_id,
+        url,
+        use_real_render=use_real_render,
+        parent_job_id=parent_job_id,
+        iteration_index=iteration_index,
+    )
+
+    prev_job = jobs.store.get(job_id)
+    if (
+        remaining <= 0
+        or prev_job is None
+        or prev_job.status != "done"
+        or (prev_job.result is not None and prev_job.result.done)
+    ):
+        return
+
+    next_job = jobs.store.create(
+        url,
+        parent_job_id=job_id,
+        iteration_index=iteration_index + 1,
+    )
+    await _run_chain(
+        job_id=next_job.id,
+        url=url,
+        use_real_render=use_real_render,
+        parent_job_id=job_id,
+        iteration_index=iteration_index + 1,
+        remaining=remaining - 1,
+    )
 
 
 @app.get("/api/jobs/{job_id}", response_model=Job)
@@ -51,6 +128,47 @@ def get_job(job_id: str) -> Job:
     if not job:
         raise HTTPException(status_code=404, detail="job not found")
     return job
+
+
+@app.get("/api/jobs/{job_id}/chain")
+def get_chain(job_id: str) -> dict:
+    """Return the full iteration chain (root → this job) as compact summaries
+    the UI can use to draw a breadcrumb."""
+    tail = jobs.store.get(job_id)
+    if not tail:
+        raise HTTPException(status_code=404, detail="job not found")
+    ordered: list = []
+    seen: set[str] = set()
+    cur = tail
+    while cur and cur.id not in seen:
+        seen.add(cur.id)
+        ordered.append(cur)
+        parent_id = getattr(cur, "parent_job_id", None)
+        cur = jobs.store.get(parent_id) if parent_id else None
+    ordered.reverse()
+
+    summaries = []
+    for j in ordered:
+        r = j.result
+        cohort = None
+        if r is not None:
+            c = r.v1.video_modality.headline_scores_vs_cohort
+            cohort = {
+                "attention": c.attention.cohort_z,
+                "self_relevance": c.self_relevance.cohort_z,
+                "reward": c.reward.cohort_z,
+                "disgust": c.disgust.cohort_z,
+            }
+        summaries.append({
+            "job_id": j.id,
+            "iteration_index": j.iteration_index,
+            "status": j.status,
+            "url": j.url,
+            "diagnosis": r.findings.summary if r else None,
+            "cohort_z": cohort,
+            "done": r.done if r else False,
+        })
+    return {"chain": summaries}
 
 
 @app.get("/api/jobs/{job_id}/events")

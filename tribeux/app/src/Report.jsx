@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
 import { useJob } from './lib/useAnalysis'
+import { getChain, startAnalysis } from './lib/api'
 
 const AXIS_META = {
   attention:      { name: 'Attention',      meta: 'FRONTO-PARIETAL · D29' },
@@ -147,8 +148,22 @@ function Loading({ label }) {
 
 export default function Report() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const jobId = params.get('job')
   const { job, error } = useJob(jobId)
+  const [chain, setChain] = useState([])
+  const [iterCount, setIterCount] = useState(1)
+  const [kicking, setKicking] = useState(false)
+  const [kickErr, setKickErr] = useState(null)
+
+  useEffect(() => {
+    if (!jobId) return undefined
+    let cancelled = false
+    getChain(jobId)
+      .then(({ chain }) => { if (!cancelled) setChain(chain || []) })
+      .catch(() => { if (!cancelled) setChain([]) })
+    return () => { cancelled = true }
+  }, [jobId, job?.status])
 
   if (!jobId) return <Loading label="NO JOB ID — START A SCAN" />
   if (error) return <Loading label={`ERROR · ${error}`} />
@@ -160,6 +175,8 @@ export default function Report() {
   const series = v1.time_series_zscored
   const findings = result.findings
   const patches = result.applied_patches.map(ap => ap.proposal)
+  const iterationIndex = result.iteration_index ?? 0
+  const isDone = Boolean(result.done)
 
   // Worst axis (signed direction)
   const ranked = AXIS_ORDER.map((axis) => {
@@ -175,7 +192,66 @@ export default function Report() {
   // Match a frame to each anomaly so the reader can see what Claude saw
   const framesByT = Object.fromEntries(result.frames.map(f => [f.t, f]))
 
-  const tape = `FINDINGS · ${result.url} · ${new Date(result.v1.metadata.scored_at_utc).toISOString().slice(0, 10)}`
+  const tape = `FINDINGS · ${result.url} · ${new Date(result.v1.metadata.scored_at_utc).toISOString().slice(0, 10)} · ITER ${String(iterationIndex).padStart(2, '0')}`
+
+  async function runMore() {
+    setKicking(true)
+    setKickErr(null)
+    try {
+      const { job_id } = await startAnalysis(result.url, {
+        parentJobId: jobId,
+        iterations: Math.max(1, Math.min(8, iterCount)),
+      })
+      navigate(`/demo?url=${encodeURIComponent(result.url)}&job=${job_id}`)
+    } catch (e) {
+      setKickErr(String(e))
+    } finally {
+      setKicking(false)
+    }
+  }
+
+  function downloadReport() {
+    const replayParts = []
+    for (const h of result.history || []) {
+      for (const e of h.edits || []) {
+        replayParts.push(
+          `try { const el = document.querySelector(${JSON.stringify(e.selector)}); if (el) el.outerHTML = ${JSON.stringify(e.after_html)}; } catch (err) { console.warn('tribeux replay failed', err); }`,
+        )
+      }
+    }
+    for (const p of patches) {
+      replayParts.push(
+        `try { const el = document.querySelector(${JSON.stringify(p.selector)}); if (el) el.outerHTML = ${JSON.stringify(p.after_html)}; } catch (err) { console.warn('tribeux replay failed', err); }`,
+      )
+    }
+    const blob = new Blob([
+      JSON.stringify({
+        url: result.url,
+        iteration_index: iterationIndex,
+        parent_job_id: result.parent_job_id,
+        cohort_z: Object.fromEntries(
+          AXIS_ORDER.map(a => [a, cohort[a].cohort_z]),
+        ),
+        findings: {
+          summary: findings.summary,
+          history_note: findings.history_note,
+          done: findings.done,
+        },
+        current_patches: patches,
+        history: result.history || [],
+        replay_script: replayParts.join('\n'),
+        full_report: result,
+      }, null, 2),
+    ], { type: 'application/json' })
+    const href = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = href
+    a.download = `tribeux_${jobId}_iter${iterationIndex}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(href)
+  }
 
   return (
     <motion.section
@@ -192,6 +268,7 @@ export default function Report() {
             <span>{tape}</span>
             <strong>
               {findings.anomalies.length} ANOMALY · {patches.length} REDESIGN
+              {isDone && ' · CONVERGED'}
             </strong>
           </div>
           <h1 className="report__title">
@@ -219,6 +296,10 @@ export default function Report() {
           </p>
         </div>
       </div>
+
+      {chain.length > 1 && (
+        <HistoryBreadcrumb chain={chain} activeId={jobId} onJump={(id) => navigate(`/report?job=${id}`)} />
+      )}
 
       <div className="report__body">
         <div className="report-col">
@@ -304,6 +385,17 @@ export default function Report() {
           }}>
             CLAUDE: "{findings.summary}"
           </p>
+          {findings.history_note && (
+            <p style={{
+              fontSize: 12,
+              fontFamily: 'var(--mono)',
+              color: 'var(--ink-mute)',
+              marginTop: 6,
+              letterSpacing: '0.04em',
+            }}>
+              HISTORY NOTE: {findings.history_note}
+            </p>
+          )}
         </div>
 
         <div className="report-col">
@@ -351,10 +443,13 @@ export default function Report() {
               <article className="finding">
                 <div className="finding__num">—</div>
                 <div>
-                  <h4 className="finding__title">No anomalies above threshold.</h4>
+                  <h4 className="finding__title">
+                    {isDone ? 'Converged — no edits warranted.' : 'No anomalies above threshold.'}
+                  </h4>
                   <p className="finding__body">
-                    Cohort z-scores are within ±0.3σ across all axes. Recommend a
-                    cosmetic v2 only.
+                    {isDone
+                      ? 'All four axes are within ±0.5σ of the cohort baseline. Claude signalled `done`.'
+                      : 'Cohort z-scores are within ±0.3σ across all axes. Recommend a cosmetic v2 only.'}
                   </p>
                 </div>
               </article>
@@ -401,21 +496,133 @@ export default function Report() {
 
       <div className="report__cta">
         <p>
-          Want the <span className="flame">v2 patch</span> — copy, palette, and the
-          frames Claude drew over — as a Figma link?
+          {isDone
+            ? <>Brain says <span className="flame">this page is healthy</span>. Download the full report below.</>
+            : <>Feed this iteration's patches back in and <span className="flame">run N more passes</span>. Claude sees the prior edits + score deltas on each call.</>
+          }
         </p>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <button className="btn btn--xl">
-            Download v2 patch
-            <span className="btn__tag">Free for the demo</span>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={iterBoxStyle}>
+            <label style={iterLabelStyle} htmlFor="iter-slider">
+              Run more iterations <strong style={{ color: 'var(--ink)' }}>{iterCount}</strong>
+            </label>
+            <input
+              id="iter-slider"
+              type="range"
+              min={1}
+              max={8}
+              step={1}
+              value={iterCount}
+              onChange={(e) => setIterCount(Number(e.target.value))}
+              disabled={kicking || isDone}
+              style={{ width: 180 }}
+            />
+            <button
+              className="btn btn--xl"
+              onClick={runMore}
+              disabled={kicking || isDone}
+              style={{ marginLeft: 10 }}
+            >
+              {kicking ? 'Kicking off…' : `Run ${iterCount} more`}
+              <span className="btn__tag">
+                {isDone ? 'already converged' : `each pass ≈ 3 min`}
+              </span>
+            </button>
+          </div>
+          <button className="btn btn--ghost" onClick={downloadReport}>
+            Download report (.json)
           </button>
           <Link to="/" className="btn btn--ghost" style={{ textDecoration: 'none' }}>
             Scan another site
           </Link>
         </div>
+        {kickErr && (
+          <p style={{ color: '#d94040', fontFamily: 'var(--mono)', fontSize: 12, marginTop: 8 }}>
+            {kickErr}
+          </p>
+        )}
       </div>
     </motion.section>
   )
+}
+
+function HistoryBreadcrumb({ chain, activeId, onJump }) {
+  return (
+    <div style={{
+      margin: '14px 0 22px',
+      padding: '10px 14px',
+      border: '1px solid rgba(0,0,0,0.08)',
+      borderRadius: 10,
+      background: 'rgba(0,0,0,0.02)',
+      fontFamily: 'var(--mono)',
+      fontSize: 12,
+    }}>
+      <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--ink-mute)', marginBottom: 6 }}>
+        ITERATION CHAIN · n={chain.length}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        {chain.map((node, i) => {
+          const active = node.job_id === activeId
+          const z = node.cohort_z || {}
+          const worst = Object.entries(z).reduce(
+            (acc, [ax, v]) => {
+              const bad = ax === 'disgust' ? v : -v
+              return bad > acc.bad ? { axis: ax, z: v, bad } : acc
+            },
+            { axis: null, z: 0, bad: -Infinity },
+          )
+          return (
+            <div key={node.job_id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => onJump(node.job_id)}
+                title={node.diagnosis || ''}
+                style={{
+                  border: active ? '2px solid var(--ink)' : '1px solid rgba(0,0,0,0.2)',
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  background: active ? 'rgba(0,0,0,0.06)' : 'transparent',
+                  fontFamily: 'var(--mono)',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  color: 'var(--ink)',
+                }}
+              >
+                <strong>v{node.iteration_index + 1}</strong>
+                {worst.axis && (
+                  <span style={{ marginLeft: 6, color: 'var(--ink-mute)' }}>
+                    {worst.axis.slice(0, 3)}{' '}
+                    {worst.z >= 0 ? '+' : '−'}{Math.abs(worst.z).toFixed(2)}σ
+                  </span>
+                )}
+                {node.done && (
+                  <span style={{ marginLeft: 6, color: '#2e9e5e' }}>✓</span>
+                )}
+              </button>
+              {i < chain.length - 1 && <span style={{ color: 'var(--ink-mute)' }}>→</span>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const iterBoxStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '8px 12px',
+  border: '1px solid rgba(0,0,0,0.14)',
+  borderRadius: 10,
+  background: 'rgba(255,255,255,0.6)',
+}
+
+const iterLabelStyle = {
+  fontFamily: 'var(--mono)',
+  fontSize: 11,
+  letterSpacing: '0.08em',
+  color: 'var(--ink-mute)',
+  textTransform: 'uppercase',
 }
 
 const diffImgStyle = {

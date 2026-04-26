@@ -26,6 +26,7 @@ from .schemas import (
     PatchProposal,
     Report,
 )
+from .timeline import build_patch_script, build_timeline, resolve_history
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +60,7 @@ async def _run_domtree(url: str) -> tuple[list[dict[str, Any]], bytes | None]:
                 "text": (u.text or "")[:280],
                 "outer_html": (u.outer_html or "")[:1200],
                 "importance": u.importance,
+                "computed_style": getattr(u, "computed_style", {}) or {},
                 "bbox": dataclasses.asdict(u.bbox) if hasattr(u.bbox, "__dataclass_fields__") else u.bbox.__dict__,
             }
         )
@@ -139,7 +141,14 @@ STAGE_LABELS = {
 }
 
 
-async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
+async def run_pipeline(
+    job_id: str,
+    url: str,
+    *,
+    use_real_render: bool,
+    parent_job_id: str | None = None,
+    iteration_index: int = 0,
+) -> None:
     log = lambda stage, msg: jobs.store.log(job_id, stage, msg)
     prog = lambda stage, pct: jobs.store.progress(job_id, stage, pct)
 
@@ -155,6 +164,17 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
     def stage(name: str):
         return jobs.stage(job_id, name, STAGE_LABELS.get(name, name.upper()))
 
+    # Resolve the prior-iteration chain up-front so downstream stages can
+    # see what's already been applied.
+    prior_history, past_edit_unit_ids, _ = resolve_history(jobs.store, parent_job_id)
+    patch_script = build_patch_script(prior_history)
+    if parent_job_id:
+        log(
+            "render",
+            f"iteration {iteration_index} · parent={parent_job_id} · "
+            f"{len(prior_history)} prior edit(s) being replayed",
+        )
+
     try:
         async with stage("render"):
             prog("render", 0.05)
@@ -165,16 +185,33 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
 
         video_path: str | None = None
         page_text = ""
+        scroll_log: list = []
+        total_height = 0
+        viewport_h = 1024
+        actual_duration_s = 0.0
         async with stage("encode"):
             prog("encode", 0.18)
             if use_real_render:
                 log("encode", "url_to_video · 15s scroll · 256² @ 30fps")
-                rendered = await render.render_url(url, duration=15)
+                rendered = await render.render_url(
+                    url,
+                    duration=15,
+                    patch_script=patch_script or None,
+                )
                 video_path = rendered["video_path"]
                 page_text = rendered["page_text"]
                 v1_frames = rendered["frames"]
                 full_screenshot_v1 = rendered["full_page_png"] or full_screenshot_v1
-                log("encode", f"video {video_path} · {len(page_text)} chars text · {len(v1_frames)} frame(s)")
+                scroll_log = rendered.get("scroll_log") or []
+                total_height = rendered.get("total_height", 0)
+                viewport_h = rendered.get("viewport_h", 1024)
+                actual_duration_s = rendered.get("actual_duration_s", 15.0)
+                log(
+                    "encode",
+                    f"video {video_path} · {len(page_text)} chars text · "
+                    f"{len(v1_frames)} frame(s) · scroll_log n={len(scroll_log)} · "
+                    f"duration {actual_duration_s:.2f}s",
+                )
             else:
                 log("encode", "scroll capture · 13 timesteps · 256² downsample (sample mode)")
                 v1_frames, full_v1 = await frames.capture_frames(
@@ -203,22 +240,49 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             log("benchmark", f"cohort n={cohort.n} · axes={','.join(cohort.axes)}")
             await beat()
 
+        # Build the per-second timeline + finalize history with the score we just measured.
+        cohort_now = {
+            "attention":      v1.video_modality.headline_scores_vs_cohort.attention.cohort_z,
+            "self_relevance": v1.video_modality.headline_scores_vs_cohort.self_relevance.cohort_z,
+            "reward":         v1.video_modality.headline_scores_vs_cohort.reward.cohort_z,
+            "disgust":        v1.video_modality.headline_scores_vs_cohort.disgust.cohort_z,
+        }
+        timeline_block = build_timeline(
+            units, scroll_log, v1,
+            viewport_h=viewport_h,
+            total_height=total_height,
+            actual_duration_s=actual_duration_s,
+        )
+        full_history, past_edit_ids, _ = resolve_history(
+            jobs.store, parent_job_id, current_cohort=cohort_now,
+        )
+
         async with stage("claude"):
             prog("claude", 0.72)
             log(
                 "claude",
-                "anthropic.messages.create · sending time-series + per-second frames + units",
+                "anthropic.messages.create · sending time-series + per-second frames + units + timeline + history",
             )
             findings = claude_analyst.analyze(
-                inference=v1, frames=v1_frames, cohort=cohort, units=units
+                inference=v1,
+                frames=v1_frames,
+                cohort=cohort,
+                units=units,
+                timeline=timeline_block,
+                history=full_history,
+                iteration_index=iteration_index,
+                past_edit_unit_ids=past_edit_ids,
             )
             log(
                 "claude",
                 f"{findings.model}{' (mock)' if findings.mock else ''} · "
-                f"{len(findings.anomalies)} anomaly · {len(findings.patches)} patch",
+                f"{len(findings.anomalies)} anomaly · {len(findings.patches)} patch · "
+                f"done={findings.done}",
             )
             for a in findings.anomalies:
                 log("claude", f"anomaly[{a.axis}] t={a.t_start}-{a.t_end} σ={a.severity:.2f}")
+            if findings.history_note:
+                log("claude", f"history_note: {findings.history_note}")
             await beat()
 
         async with stage("frames"):
@@ -269,8 +333,13 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             screenshot_v2_data_url=_png_to_data_url(full_v2),
             predicted_uplift_per_axis=uplift_per_axis,
             overall_predicted_uplift=signed,
+            iteration_index=iteration_index,
+            parent_job_id=parent_job_id,
+            timeline=timeline_block,
+            history=full_history,
+            done=findings.done,
         )
-        log("done", f"overall predicted uplift {signed:+.2f}σ")
+        log("done", f"overall predicted uplift {signed:+.2f}σ · done={findings.done}")
         jobs.store.checkpoint(
             job_id, "done", "end", STAGE_LABELS["done"], elapsed_ms=0
         )
