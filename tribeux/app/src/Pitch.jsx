@@ -408,7 +408,7 @@ function ArchBrain() {
               repeat: Infinity,
               ease: 'easeInOut',
             }}
-            style={{ transformOrigin: `${r.cx}px ${r.cy}px`, transformBox: 'fill-box' }}
+            style={{ transformOrigin: 'center center', transformBox: 'fill-box' }}
           />
         ))}
       </svg>
@@ -488,7 +488,7 @@ function ArchGraph() {
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 1] }}
           transition={{ duration: 0.6, delay: 1.2, repeat: Infinity, repeatDelay: 1.9 }}
-          style={{ transformOrigin: '60px 55px', transformBox: 'fill-box' }}
+          style={{ transformOrigin: 'center center', transformBox: 'fill-box' }}
         />
       </svg>
       <div className="pitch__arch-sub">5 metrics × 10 seconds</div>
