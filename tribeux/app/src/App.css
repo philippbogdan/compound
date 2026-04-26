@@ -3441,14 +3441,41 @@
 .pitch__arch-code-attr { color: oklch(0.82 0.16 90); }
 .pitch__arch-code-str  { color: oklch(0.78 0.14 145); }
 
-/* Optimiser loop */
-.pitch__arch-loop {
-  width: 100%;
-  height: 80px;
-  margin-top: -40px;
-  pointer-events: none;
+/* Optimiser loop — wrapper holds the SVG arrow + the HTML label so the
+   label renders with its real font metrics (the SVG uses
+   preserveAspectRatio="none", which would distort SVG <text>). */
+.pitch__arch-loop-wrap {
   position: relative;
+  width: 100%;
+  height: 96px;
+  margin-top: -36px;
+  pointer-events: none;
   z-index: 1;
+}
+.pitch__arch-loop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pitch__arch-loop-label {
+  position: absolute;
+  left: 50%;
+  /* The SVG's bottom horizontal segment sits at y=95 in the 0\u2013120
+     viewBox, which maps to ~76px down inside a 96px wrapper. Centre the
+     label there. */
+  top: 76px;
+  transform: translate(-50%, -50%);
+  background: var(--paper);
+  padding: 3px 14px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--flame-deep, oklch(0.55 0.22 35));
+  white-space: nowrap;
+  z-index: 2;
 }
 
 @media (max-width: 1100px) {
@@ -3458,7 +3485,7 @@
     row-gap: 18px;
   }
   /* Wrap layout: row 1 = URL → arrow → VIDEO; row 2 = arrow + BRAIN + arrow + GRAPH; row 3 = arrow + HTML */
-  .pitch__arch-loop { display: none; }
+  .pitch__arch-loop-wrap { display: none; }
 }
 
 @media (max-width: 720px) {
