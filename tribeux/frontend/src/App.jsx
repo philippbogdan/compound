@@ -50,7 +50,7 @@ function App() {
   return (
     <>
       <window.DesignCanvas>
-        <window.DCSection id="landing" title="TribeUX · Landing" subtitle="Two directions — Founders-faithful + Turquoise-forward product">
+        <window.DCSection id="landing" title="Compound · Landing" subtitle="Two directions — Founders-faithful + Turquoise-forward product">
           <window.DCArtboard id="A" label="A · Editorial sky" width={1440} height={1080} style={{ background: 'transparent', boxShadow: 'none' }}>
             <LandingShell which="A"/>
           </window.DCArtboard>

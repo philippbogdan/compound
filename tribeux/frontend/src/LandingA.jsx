@@ -20,7 +20,7 @@ function LandingA({ onSubmit, analyzing, url, setUrl }) {
       }}>
         <div style={{fontFamily:T.fUI, fontSize:12.5, lineHeight:1.15, letterSpacing:'-0.01em'}}>
           <div style={{fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
-            <window.BrandMark size={16}/> TribeUX
+            <window.BrandMark size={16}/> Compound
           </div>
           <div style={{color:T.inkMute, marginTop:2}}>Neural UX analysis<sup style={{fontSize:8,marginLeft:2}}>™</sup></div>
         </div>
@@ -70,7 +70,7 @@ function LandingA({ onSubmit, analyzing, url, setUrl }) {
             <p className="tb-rise tb-rise-3" style={{
               marginTop:18, maxWidth:500, fontSize:15.5, lineHeight:1.55, color:T.inkSoft,
             }}>
-              TribeUX runs an out-of-distribution neural model against your page,
+              Compound runs an out-of-distribution neural model against your page,
               estimates cortical activation across the Destrieux atlas, and returns
               a perturbation-grounded critique of what your interface makes people <i>feel</i>.
             </p>
@@ -162,7 +162,7 @@ function AnalysisOverlay({ url }) {
       }}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
           <div>
-            <div className="tb-eyebrow">Tribe · live</div>
+            <div className="tb-eyebrow">Compound · live</div>
             <div style={{fontFamily:T.fDisplay, fontSize:26, marginTop:4, letterSpacing:'-0.025em', fontWeight:500}}>
               Scanning <span style={{color:T.tealDeep}}>{url || 'site'}</span>
             </div>

@@ -24,7 +24,7 @@ function LandingB({ onSubmit, analyzing, url, setUrl }) {
         <div style={{padding:'9px 10px 9px 16px', borderRadius:999, display:'flex', alignItems:'center', gap:18}}>
           <div style={{display:'flex',alignItems:'center',gap:8, fontFamily:T.fUI, fontSize:13.5, fontWeight:600, letterSpacing:'-0.02em'}}>
             <window.BrandMark size={18}/>
-            TribeUX
+            Compound
             <span style={{fontFamily:T.fMono, fontSize:9.5, color:T.inkMute, marginLeft:4, padding:'2px 5px', border:`1px dotted ${T.hairStrong}`, borderRadius:3}}>v2.3</span>
           </div>
           <div style={{width:1, height:14, background:T.hair}}/>
@@ -96,7 +96,7 @@ function LandingB({ onSubmit, analyzing, url, setUrl }) {
                 <p className="tb-rise tb-rise-3" style={{
                   marginTop:18, maxWidth:500, fontSize:14.5, lineHeight:1.55, color:T.inkSoft,
                 }}>
-                  TribeUX pushes your page through <b style={{color:T.ink,fontWeight:500}}>Tribe v2</b> — a neural encoder
+                  Compound pushes your page through <b style={{color:T.ink,fontWeight:500}}>Tribe v2</b> — a neural encoder
                   trained on human fMRI — then derives perturbation maps, decodes emotion via the
                   Destrieux atlas, and ranks concrete copy and layout edits by their effect on
                   attention, affect, and comprehension.
@@ -148,7 +148,7 @@ function LandingB({ onSubmit, analyzing, url, setUrl }) {
                       color:'#fff',
                       boxShadow:'inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 16px -4px rgba(14,143,134,0.5)',
                     }}>
-                      {analyzing ? 'Analyzing…' : 'Run Tribe  →'}
+                      {analyzing ? 'Analyzing…' : 'Run Compound  →'}
                     </button>
                   </div>
                 </div>
