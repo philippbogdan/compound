@@ -14,7 +14,7 @@ const STAGES = [
     headline: ['Queueing', 'the scan.'] },
   { key: 'render',    label: 'RENDER',     long: 'Playwright + tribedomtree',
     headline: ['Capturing the page,', 'one scroll at a time.'] },
-  { key: 'encode',    label: 'ENCODE',     long: '13 × 256² scrolling capture',
+  { key: 'encode',    label: 'ENCODE',     long: '10 × 256² scrolling capture',
     headline: ['Compressing 4.8s of pixels', 'into a tensor.'] },
   { key: 'tribe',     label: 'TRIBE v2',   long: 'Cortical response, frame by frame',
     headline: ['Predicting cortical response', 'across 115 regions.'] },
@@ -273,7 +273,7 @@ export default function Demo() {
               )}
             </dd>
             <dt>Stimulus</dt>
-            <dd>{frames.length || 13} × 256² · scrolling capture</dd>
+            <dd>{frames.length || 10} × 256² · scrolling capture</dd>
             <dt>Cortex model</dt>
             <dd>TRIBE v2 (stub) · Destrieux · 4 affective axes</dd>
           </dl>
