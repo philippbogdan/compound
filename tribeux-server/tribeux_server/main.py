@@ -39,6 +39,9 @@ def health() -> dict[str, str]:
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
+    # Normalize bare hostnames so Playwright doesn't reject "airbnb.com".
+    url = _normalize_url(req.url)
+
     # Resolve the iteration index from the parent chain (if any).
     parent_id = req.parent_job_id
     iter_index = 0
@@ -48,7 +51,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             iter_index = (parent.iteration_index or 0) + 1
 
     job = jobs.store.create(
-        req.url,
+        url,
         parent_job_id=parent_id,
         iteration_index=iter_index,
     )
@@ -58,7 +61,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         asyncio.create_task(
             _run_chain(
                 job_id=job.id,
-                url=req.url,
+                url=url,
                 use_real_render=req.use_real_render,
                 parent_job_id=parent_id,
                 iteration_index=iter_index,
@@ -69,13 +72,28 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         asyncio.create_task(
             pipeline.run_pipeline(
                 job.id,
-                req.url,
+                url,
                 use_real_render=req.use_real_render,
                 parent_job_id=parent_id,
                 iteration_index=iter_index,
             )
         )
     return AnalyzeResponse(job_id=job.id)
+
+
+def _normalize_url(raw: str) -> str:
+    """Playwright refuses bare hostnames — `airbnb.com` fails. Prepend
+    `https://` when the user omits the scheme. Strips stray whitespace."""
+    u = (raw or "").strip()
+    if not u:
+        return u
+    lower = u.lower()
+    if lower.startswith(("http://", "https://")):
+        return u
+    # Tolerate accidental `//airbnb.com` or `www.airbnb.com`.
+    if u.startswith("//"):
+        return "https:" + u
+    return "https://" + u
 
 
 async def _run_chain(
