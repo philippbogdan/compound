@@ -263,8 +263,13 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
         )
         jobs.store.finish(job_id, report)
     except Exception as exc:  # noqa: BLE001
-        jobs.store.fail(job_id, repr(exc))
+        # Emit the human-readable log line BEFORE marking the job failed.
+        # `fail()` broadcasts a terminal `done` event that causes SSE
+        # subscribers to disconnect — anything broadcast after `done` is
+        # lost for live viewers (still saved to job.logs for replay, but
+        # never seen in real time).
         log("error", repr(exc))
+        jobs.store.fail(job_id, repr(exc))
 
 
 def _fmt_cohort(r: InferenceResult) -> str:

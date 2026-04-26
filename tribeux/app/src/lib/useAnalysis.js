@@ -65,6 +65,7 @@ export function useJob(jobId) {
       setError(null)
     }, 0)
     const apply = makeApply(setJob, jobId)
+    const ref = { es: null }
     const handlers = {
       log: (p) => apply('log', p),
       checkpoint: (p) => apply('checkpoint', p),
@@ -75,18 +76,23 @@ export function useJob(jobId) {
         apply('error', p)
         setError(p?.message || 'pipeline error')
       },
-      done: () => {},
+      done: () => {
+        // Server closes the stream after `done`; close client-side too so
+        // EventSource doesn't auto-reconnect and replay buffered state,
+        // which would duplicate logs/checkpoints in the merged transcript.
+        ref.es?.close()
+      },
     }
-    const es = subscribeJob(jobId, handlers)
-    es.onerror = () => {
+    ref.es = subscribeJob(jobId, handlers)
+    ref.es.onerror = () => {
       // EventSource auto-reconnects; surface a soft error only if we
       // can't open the stream at all.
-      if (es.readyState === EventSource.CLOSED) setError('stream closed')
+      if (ref.es?.readyState === EventSource.CLOSED) setError('stream closed')
     }
     return () => {
       cancelled = true
       clearTimeout(resetId)
-      es.close()
+      ref.es?.close()
     }
   }, [jobId])
 
