@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import BrainCanvas from './BrainCanvas'
 
 const STAGES = [
   { key: 'render',    label: 'RENDER',     long: 'Scrolling capture',                 ms:  9000 },
@@ -13,25 +14,27 @@ const STAGES = [
 ]
 
 const LOG_ENTRIES = [
-  ['00:00', 'render',    'playwright → chromium headless · viewport 1440×900'],
-  ['00:02', 'render',    'scrolling capture · 4.8 s at 24 fps'],
-  ['00:07', 'encode',    'downsample 256×256 · greyscale retained'],
-  ['00:10', 'tribe',     'TRIBE v2 loaded · weights sha256:7f2a…9be'],
-  ['00:13', 'tribe',     'cortical response predicted · 115 regions'],
-  ['00:18', 'tribe',     'Destrieux mapping applied'],
-  ['00:22', 'project',   'axes: attention · self-relevance · reward · friction(a) · friction(c)'],
-  ['00:26', 'benchmark', 'corpus n=30 · z-baseline computed'],
-  ['00:29', 'claude',    'flagged: reward trace below benchmark at t=2.1 s'],
-  ['00:32', 'claude',    'flagged: cognitive friction spike at 62% scroll'],
-  ['00:36', 'frames',    'extracting frame 048, 101, 147, 189'],
-  ['00:38', 'compose',   '3 findings drafted · diff pending'],
-  ['00:41', 'compose',   'optimising copy · hero sub-headline'],
+  ['00:00', 'render',    'playwright.chromium.headless · viewport 1440×900 · devicePixelRatio 2'],
+  ['00:02', 'render',    'scroll capture · 4.8 s · 24 fps · 115 frames'],
+  ['00:07', 'encode',    'torchvision.io.read_video → tensor [1, 115, 256, 256, 3] fp16'],
+  ['00:09', 'tribe',     'torch.load(tribev2.pt) · cuda:0 · 2.1B params · sha256:7f2a…9be'],
+  ['00:13', 'tribe',     'forward() · 18.2 ms/frame · mean activation 0.613'],
+  ['00:18', 'tribe',     'destrieux.map(acts, regions=115) · coverage 98.2%'],
+  ['00:22', 'project',   'project → axes [attention, self, reward, friction_a, friction_c]'],
+  ['00:26', 'benchmark', 'corpus n=30 · z = (x − μ) / σ · axis-wise'],
+  ['00:29', 'claude',    'flagged: reward_trace < benchmark at t=2.1s · z=−1.74'],
+  ['00:32', 'claude',    'flagged: friction_c spike at scroll_depth=0.62 · z=+0.92'],
+  ['00:36', 'frames',    'ffmpeg extract · frames [048, 101, 147, 189] → png 256²'],
+  ['00:38', 'compose',   'claude.messages.create · model=claude-opus-4-7 · 3 findings'],
+  ['00:41', 'compose',   'patch.figma → variant v2 · predicted_uplift=+0.14'],
 ]
 
 export default function Demo() {
   const [params] = useSearchParams()
   const nav = useNavigate()
-  const urlFromQuery = params.get('url') || 'airbnb.com'
+  const urlFromQuery = params.get('url') || 'stripe.com'
+
+  const isStripe = /(^|\.)stripe\.com(\/|$)/i.test(urlFromQuery) || /^stripe(\.com)?$/i.test(urlFromQuery.trim())
 
   const [activeIdx, setActiveIdx] = useState(0)
   const [visibleLogs, setVisibleLogs] = useState(1)
@@ -68,10 +71,7 @@ export default function Demo() {
     return () => clearInterval(t)
   }, [])
 
-  const currentCopy = useMemo(() => {
-    const idx = Math.min(activeIdx, STAGES.length - 1)
-    return STAGES[idx]
-  }, [activeIdx])
+  const currentCopy = useMemo(() => STAGES[Math.min(activeIdx, STAGES.length - 1)], [activeIdx])
 
   return (
     <section className="scan">
@@ -107,6 +107,13 @@ export default function Demo() {
 
         <div className="scan__video">
           <div className="scan__video-frame" aria-label="256 by 256 stimulus preview">
+            {isStripe ? (
+              <video
+                src="/stripe-scan.mp4"
+                autoPlay muted loop playsInline
+                className="scan__video-media"
+              />
+            ) : null}
             <span className="scan__video-frame__stamp">256 × 256</span>
             <span className="scan__video-frame__time">t = {(activeIdx * 0.6).toFixed(1)}s</span>
           </div>
@@ -135,10 +142,13 @@ export default function Demo() {
 
       <aside className="scan__aside">
         <div className="scan__aside__section">
-          <h5>What it's doing</h5>
-          <p>
-            Estimating <strong>predicted brain-space response</strong>, not brain
-            activity. Interpretation is done by Claude.
+          <h5>Live cortex · fsaverage5</h5>
+          <div className="scan__brain">
+            <BrainCanvas width={268} height={268} autoRotate brightness={1.05} />
+          </div>
+          <p className="scan__brain__caption">
+            <strong>TRIBE v2 · 2.1B params</strong>
+            <span>115 regions · fp16 · cuda:0</span>
           </p>
         </div>
 
