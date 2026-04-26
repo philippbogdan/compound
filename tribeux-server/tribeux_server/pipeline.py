@@ -125,6 +125,19 @@ def _png_to_data_url(png: bytes | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+STAGE_LABELS = {
+    "render":    "PLAYWRIGHT.CHROMIUM · TRIBEDOMTREE EXTRACT",
+    "encode":    "SCROLL CAPTURE · 13 × 256²",
+    "tribe":     "TRIBE v2 (stub) · CORTICAL FORWARD",
+    "project":   "DESTRIEUX · 4 AFFECTIVE AXES",
+    "benchmark": "COHORT · n=30 LANDING PAGES",
+    "claude":    "ANTHROPIC · ANOMALY + REDESIGN",
+    "frames":    "FRAME PULL · CLAUDE-FLAGGED INDICES",
+    "compose":   "TRIBEDOMTREE PATCH · v2 INFERENCE",
+    "done":      "VERDICT · PREDICTED UPLIFT",
+}
+
+
 async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
     log = lambda stage, msg: jobs.store.log(job_id, stage, msg)
     prog = lambda stage, pct: jobs.store.progress(job_id, stage, pct)
@@ -138,81 +151,93 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
         if seconds > 0:
             await asyncio.sleep(seconds)
 
+    def stage(name: str):
+        return jobs.stage(job_id, name, STAGE_LABELS.get(name, name.upper()))
+
     try:
-        prog("render", 0.05)
-        log("render", f"playwright.chromium.headless · target {url}")
-        units, full_screenshot_v1 = await _run_domtree(url) if use_real_render else (_fallback_units(), None)
-        log("render", f"tribedomtree extracted {len(units)} DOM unit(s)")
-        await beat()
+        async with stage("render"):
+            prog("render", 0.05)
+            log("render", f"playwright.chromium.headless · target {url}")
+            units, full_screenshot_v1 = await _run_domtree(url) if use_real_render else (_fallback_units(), None)
+            log("render", f"tribedomtree extracted {len(units)} DOM unit(s)")
+            await beat()
 
-        prog("encode", 0.18)
-        log("encode", "scroll capture · 13 timesteps · 256² downsample")
-        v1_frames, full_v1 = await frames.capture_frames(
-            url, n_timesteps=13, use_real_render=use_real_render
-        )
-        full_screenshot_v1 = full_v1 or full_screenshot_v1
-        log("encode", f"captured {len(v1_frames)} frame(s)")
-        await beat()
+        async with stage("encode"):
+            prog("encode", 0.18)
+            log("encode", "scroll capture · 13 timesteps · 256² downsample")
+            v1_frames, full_v1 = await frames.capture_frames(
+                url, n_timesteps=13, use_real_render=use_real_render
+            )
+            full_screenshot_v1 = full_v1 or full_screenshot_v1
+            log("encode", f"captured {len(v1_frames)} frame(s)")
+            await beat()
 
-        prog("tribe", 0.35)
-        log("tribe", "tribev2.stub · forwarding 13 frames")
-        v1 = inference.run_tribe_inference(url, v1_frames, label=url)
-        log("tribe", "v1 headline cohort_z = " + _fmt_cohort(v1))
-        await beat()
+        async with stage("tribe"):
+            prog("tribe", 0.35)
+            log("tribe", "tribev2.stub · forwarding 13 frames")
+            v1 = inference.run_tribe_inference(url, v1_frames, label=url)
+            log("tribe", "v1 headline cohort_z = " + _fmt_cohort(v1))
+            await beat()
 
-        prog("project", 0.5)
-        log("project", "destrieux mapping · attention/self/reward/disgust")
-        await beat()
+        async with stage("project"):
+            prog("project", 0.5)
+            log("project", "destrieux mapping · attention/self/reward/disgust")
+            await beat()
 
-        prog("benchmark", 0.6)
-        cohort = load_cohort()
-        log("benchmark", f"cohort n={cohort.n} · axes={','.join(cohort.axes)}")
-        await beat()
+        async with stage("benchmark"):
+            prog("benchmark", 0.6)
+            cohort = load_cohort()
+            log("benchmark", f"cohort n={cohort.n} · axes={','.join(cohort.axes)}")
+            await beat()
 
-        prog("claude", 0.72)
-        log(
-            "claude",
-            "anthropic.messages.create · sending time-series + per-second frames + units",
-        )
-        findings = claude_analyst.analyze(
-            inference=v1, frames=v1_frames, cohort=cohort, units=units
-        )
-        log(
-            "claude",
-            f"{findings.model}{' (mock)' if findings.mock else ''} · "
-            f"{len(findings.anomalies)} anomaly · {len(findings.patches)} patch",
-        )
-        for a in findings.anomalies:
-            log("claude", f"anomaly[{a.axis}] t={a.t_start}-{a.t_end} σ={a.severity:.2f}")
-        await beat()
+        async with stage("claude"):
+            prog("claude", 0.72)
+            log(
+                "claude",
+                "anthropic.messages.create · sending time-series + per-second frames + units",
+            )
+            findings = claude_analyst.analyze(
+                inference=v1, frames=v1_frames, cohort=cohort, units=units
+            )
+            log(
+                "claude",
+                f"{findings.model}{' (mock)' if findings.mock else ''} · "
+                f"{len(findings.anomalies)} anomaly · {len(findings.patches)} patch",
+            )
+            for a in findings.anomalies:
+                log("claude", f"anomaly[{a.axis}] t={a.t_start}-{a.t_end} σ={a.severity:.2f}")
+            await beat()
 
-        prog("frames", 0.82)
-        log("frames", f"asked frames: {findings.asked_for_frame_indices}")
-        await beat()
+        async with stage("frames"):
+            prog("frames", 0.82)
+            log("frames", f"asked frames: {findings.asked_for_frame_indices}")
+            await beat()
 
-        prog("compose", 0.9)
-        applied: list[AppliedPatch] = []
-        full_v2: bytes | None = None
-        for p in findings.patches:
-            if use_real_render:
-                ok, err, png = await _apply_patch_live(url, p)
-                full_v2 = png or full_v2
-                applied.append(AppliedPatch(proposal=p, applied=ok, error=err))
-                log(
-                    "compose",
-                    f"patch {p.unit_id} · {p.target_axis} · "
-                    + ("applied" if ok else f"skipped ({err})"),
-                )
-            else:
-                applied.append(AppliedPatch(proposal=p, applied=False, error="sample-mode"))
-                log("compose", f"patch {p.unit_id} · {p.target_axis} · queued (sample-mode)")
+        async with stage("compose"):
+            prog("compose", 0.9)
+            applied: list[AppliedPatch] = []
+            full_v2: bytes | None = None
+            for p in findings.patches:
+                if use_real_render:
+                    ok, err, png = await _apply_patch_live(url, p)
+                    full_v2 = png or full_v2
+                    applied.append(AppliedPatch(proposal=p, applied=ok, error=err))
+                    log(
+                        "compose",
+                        f"patch {p.unit_id} · {p.target_axis} · "
+                        + ("applied" if ok else f"skipped ({err})"),
+                    )
+                else:
+                    applied.append(AppliedPatch(proposal=p, applied=False, error="sample-mode"))
+                    log("compose", f"patch {p.unit_id} · {p.target_axis} · queued (sample-mode)")
 
-        # v2 inference: shift cohort_z + time-series by Claude's predicted uplift
-        uplift_per_axis: dict[str, float] = {"attention": 0.0, "self_relevance": 0.0, "reward": 0.0, "disgust": 0.0}
-        for p in findings.patches:
-            uplift_per_axis[p.target_axis] += p.expected_delta_z
-        v2 = inference.run_v2_inference(url, v1_frames, v1, uplift_per_axis)
-        log("compose", "v2 headline cohort_z = " + _fmt_cohort(v2))
+            # v2 inference: shift cohort_z + time-series by Claude's predicted uplift
+            uplift_per_axis: dict[str, float] = {"attention": 0.0, "self_relevance": 0.0, "reward": 0.0, "disgust": 0.0}
+            for p in findings.patches:
+                uplift_per_axis[p.target_axis] += p.expected_delta_z
+            v2 = inference.run_v2_inference(url, v1_frames, v1, uplift_per_axis)
+            log("compose", "v2 headline cohort_z = " + _fmt_cohort(v2))
+            await beat()
 
         # Direction-aware overall uplift: positive on attention/self/reward, negative on disgust
         signed = sum(
@@ -232,8 +257,11 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             predicted_uplift_per_axis=uplift_per_axis,
             overall_predicted_uplift=signed,
         )
-        jobs.store.finish(job_id, report)
         log("done", f"overall predicted uplift {signed:+.2f}σ")
+        jobs.store.checkpoint(
+            job_id, "done", "end", STAGE_LABELS["done"], elapsed_ms=0
+        )
+        jobs.store.finish(job_id, report)
     except Exception as exc:  # noqa: BLE001
         jobs.store.fail(job_id, repr(exc))
         log("error", repr(exc))

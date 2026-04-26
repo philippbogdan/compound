@@ -192,6 +192,20 @@ class JobProgress(BaseModel):
     pct: float
 
 
+class Checkpoint(BaseModel):
+    """Stage transition marker emitted by the orchestrator.
+
+    Pairs come in `begin`/`end` (or `fail`); `elapsed_ms` is measured
+    from job start (begin) or from the begin event (end/fail).
+    """
+
+    stage: str
+    kind: Literal["begin", "end", "fail"]
+    label: str
+    t: str  # mm:ss relative to job start
+    elapsed_ms: int
+
+
 class Job(BaseModel):
     id: str
     url: str
@@ -200,6 +214,7 @@ class Job(BaseModel):
     updated_at: str
     progress: JobProgress
     logs: list[LogEntry]
+    checkpoints: list[Checkpoint] = []
     result: Optional[Report] = None
     error: Optional[str] = None
 
