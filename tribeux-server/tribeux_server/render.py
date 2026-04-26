@@ -64,7 +64,7 @@ def _extract_frames(mp4_path: Path, n: int = _N_TIMESTEPS) -> list[Frame]:
     return frames
 
 
-async def _full_screenshot(url: str) -> bytes | None:
+async def _full_screenshot(url: str, patch_script: str | None = None) -> bytes | None:
     """Grab a single full-page PNG for the report's before image."""
     try:
         from playwright.async_api import async_playwright
@@ -74,6 +74,16 @@ async def _full_screenshot(url: str) -> bytes | None:
                 ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
                 page = await ctx.new_page()
                 await page.goto(url, wait_until="networkidle", timeout=60_000)
+                if patch_script:
+                    safe = (
+                        "() => { try {\n"
+                        + patch_script
+                        + "\n} catch (e) { console.warn('tribeux patch failed', e); } }"
+                    )
+                    try:
+                        await page.evaluate(safe)
+                    except Exception:  # noqa: BLE001
+                        pass
                 return await page.screenshot(full_page=True)
             finally:
                 await browser.close()
@@ -81,8 +91,12 @@ async def _full_screenshot(url: str) -> bytes | None:
         return None
 
 
-async def render_url(url: str, *, duration: int = 15) -> dict:
-    """URL → {video_path, page_text, frames, full_page_png}."""
+async def render_url(url: str, *, duration: int = 15, patch_script: str | None = None) -> dict:
+    """URL → {video_path, page_text, frames, full_page_png, scroll_log, total_height, ...}.
+
+    `patch_script` is optional JS replayed after navigation and before scroll —
+    used by the iterative orchestrator to stack outerHTML patches across passes.
+    """
     work_dir = Path(tempfile.mkdtemp(prefix="tribeux_render_"))
     raw_dir = work_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -92,7 +106,7 @@ async def render_url(url: str, *, duration: int = 15) -> dict:
         output_dir=str(raw_dir),
         viewport_size={"width": 1024, "height": 1024},
     )
-    rec = await recorder.record_scroll(url, duration=duration)
+    rec = await recorder.record_scroll(url, duration=duration, patch_script=patch_script)
 
     editor = VideoEditor(target_size=(_FRAME_SIZE, _FRAME_SIZE), target_fps=30)
     await asyncio.to_thread(
@@ -101,11 +115,15 @@ async def render_url(url: str, *, duration: int = 15) -> dict:
     )
 
     frames = await asyncio.to_thread(_extract_frames, final_path, _N_TIMESTEPS)
-    full_page_png = await _full_screenshot(url)
+    full_page_png = await _full_screenshot(url, patch_script=patch_script)
 
     return {
         "video_path": str(final_path),
         "page_text": rec.get("text", "") or "",
         "frames": frames,
         "full_page_png": full_page_png,
+        "scroll_log": rec.get("scroll_log") or [],
+        "total_height": rec.get("total_height", 0),
+        "viewport_h": rec.get("viewport_h", 1024),
+        "actual_duration_s": rec.get("actual_duration_s", float(duration)),
     }

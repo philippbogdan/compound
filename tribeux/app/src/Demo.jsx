@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import BrainCanvas from './BrainCanvas'
 import { EASE_OUT_QUINT, PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
-import { useAnalysis } from './lib/useAnalysis'
+import { useAnalysis, useJob } from './lib/useAnalysis'
 
 // Stages are derived from the server's `progress.stage` and our static
 // labelling map. The list mirrors the orchestrator in tribeux-server.
@@ -41,7 +41,13 @@ export default function Demo() {
   const [params] = useSearchParams()
   const nav = useNavigate()
   const urlFromQuery = params.get('url') || 'stripe.com'
-  const { job, error } = useAnalysis(urlFromQuery)
+  const existingJobId = params.get('job') || null
+  // If we're handed a `job=<id>` (iteration continuation), subscribe to that
+  // job's SSE stream; otherwise kick off a fresh analysis.
+  const analysis = useAnalysis(urlFromQuery, { auto: !existingJobId })
+  const existing = useJob(existingJobId)
+  const job = existingJobId ? existing.job : analysis.job
+  const error = existingJobId ? existing.error : analysis.error
 
   const status = job?.status || 'queued'
   const isComplete = status === 'done'

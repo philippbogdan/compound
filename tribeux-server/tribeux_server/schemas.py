@@ -146,6 +146,70 @@ class ClaudeFindings(BaseModel):
     asked_for_frame_indices: list[int]
     model: str
     mock: bool
+    # Iteration-aware fields (optional so single-pass callers keep working)
+    iteration: int = 0
+    history_note: Optional[str] = None
+    done: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Timeline — per-second visibility + score mapping
+# ---------------------------------------------------------------------------
+
+
+class TimelineScores(BaseModel):
+    attention: float
+    self_relevance: float
+    reward: float
+    disgust: float
+
+
+class TimelineEntry(BaseModel):
+    t: int
+    scroll_y: float
+    scores_zscored: TimelineScores
+    visible_unit_ids: list[str]
+
+
+class WorstMoment(BaseModel):
+    t: int
+    axis: Axis
+    z: float
+    visible_unit_ids: list[str]
+
+
+class TimelineBlock(BaseModel):
+    timeline: list[TimelineEntry]
+    worst_moments: list[WorstMoment]
+    total_height: Optional[int] = None
+    actual_duration_s: Optional[float] = None
+    viewport_h: int = 1024
+
+
+# ---------------------------------------------------------------------------
+# Iteration history (for chain of jobs)
+# ---------------------------------------------------------------------------
+
+
+class HistoryEdit(BaseModel):
+    unit_id: str
+    selector: str
+    target_axis: Axis
+    before_html: str
+    after_html: str
+    rationale: str
+    expected_delta_z: float
+
+
+class HistoryEntry(BaseModel):
+    """One prior iteration in the chain — what was edited and what the scores
+    looked like before/after the edit landed."""
+    iteration: int
+    job_id: str
+    diagnosis: str
+    edits: list[HistoryEdit]
+    cohort_z_before: dict[str, float]
+    cohort_z_after: dict[str, float]
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +235,12 @@ class Report(BaseModel):
     screenshot_v2_data_url: Optional[str] = None
     predicted_uplift_per_axis: dict[str, float]
     overall_predicted_uplift: float
+    # Iteration context
+    iteration_index: int = 0
+    parent_job_id: Optional[str] = None
+    timeline: Optional[TimelineBlock] = None
+    history: list[HistoryEntry] = []
+    done: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -217,11 +287,15 @@ class Job(BaseModel):
     checkpoints: list[Checkpoint] = []
     result: Optional[Report] = None
     error: Optional[str] = None
+    parent_job_id: Optional[str] = None
+    iteration_index: int = 0
 
 
 class AnalyzeRequest(BaseModel):
     url: str
     use_real_render: bool = True  # Default on — frontend never passes the flag, demo wants real renders
+    parent_job_id: Optional[str] = None
+    iterations: int = 1  # 1 = single pass; >1 enqueues a chain
 
 
 class AnalyzeResponse(BaseModel):
