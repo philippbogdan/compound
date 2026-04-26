@@ -14,13 +14,12 @@ import { EASE_OUT_QUINT, PAGE_TRANSITION, PAGE_VARIANTS } from './motion'
 /* ------------------------------------------------------------------ */
 
 const SLIDES = [
-  { key: 'cover',     label: 'COVER'     },
-  { key: 'hook',      label: 'HOOK'      },
-  { key: 'problem',   label: 'PROBLEM'   },
-  { key: 'stakes',    label: 'STAKES'    },
-  { key: 'approach',  label: 'APPROACH'  },
-  { key: 'demo',      label: 'DEMO'      },
-  { key: 'close',     label: 'CLOSE'     },
+  { key: 'cover',         label: 'COVER'         },
+  { key: 'hook',          label: 'HOOK'          },
+  { key: 'validity',      label: 'WHY IT WORKS'  },
+  { key: 'architecture',  label: 'ARCHITECTURE'  },
+  { key: 'demo',          label: 'DEMO'          },
+  { key: 'close',         label: 'CLOSE'         },
 ]
 
 const TOTAL = SLIDES.length
@@ -135,13 +134,12 @@ function SlideCover() {
         <div>
           <Tape><span>FIG. 00</span> COMPOUND · 3 MIN</Tape>
           <h1 className="pitch__title">
-            <Words text="Code is" reduceMotion={reduceMotion} />{' '}
-            <Words text="free." className="flame" delay={0.18} reduceMotion={reduceMotion} /><br />
-            <Words text="Testing isn't." delay={0.42} reduceMotion={reduceMotion} />
+            <Words text="User data" reduceMotion={reduceMotion} /><br />
+            <Words text="without users." className="flame" delay={0.30} reduceMotion={reduceMotion} />
           </h1>
           <p className="pitch__lede">
-            <strong>Compound</strong> reads how a brain responds to your website
-            — before you ever ship it to one.
+            <strong>Compound</strong> predicts how the human brain responds to
+            your website — before you ever ship it to one.
           </p>
           <div className="pitch__byline">
             <span className="pitch__byline-row">
@@ -199,24 +197,24 @@ function SlideHook() {
           variants={RISE_CHILD}
           className="pitch__hook-line pitch__hook-line--big"
         >
-          Testing it still takes <span className="flame">six weeks.</span>
+          It still ships <span className="flame">without testing.</span>
         </motion.h2>
       </motion.div>
 
       <div className="pitch__hook-meter">
         <div className="pitch__hook-meter-row">
-          <span className="pitch__hook-meter-label">CODE PRODUCED · 2025</span>
+          <span className="pitch__hook-meter-label">LOVABLE APPS · 2025</span>
           <span className="pitch__hook-meter-bar pitch__hook-meter-bar--fill" />
           <span className="pitch__hook-meter-num">
             <CountUp
-              to={4.2}
+              to={8}
               duration={1.6}
-              format={(n) => `${n.toFixed(1)}B lines`}
+              format={(n) => `${Math.round(n)}M+`}
             />
           </span>
         </div>
         <div className="pitch__hook-meter-row">
-          <span className="pitch__hook-meter-label">USERS WHO TESTED IT</span>
+          <span className="pitch__hook-meter-label">USERS WHO TESTED THEM</span>
           <span className="pitch__hook-meter-bar pitch__hook-meter-bar--empty" />
           <span className="pitch__hook-meter-num pitch__hook-meter-num--alt">
             <Words text="≈ five strangers" reduceMotion={reduceMotion} delay={0.9} />
@@ -225,102 +223,56 @@ function SlideHook() {
       </div>
 
       <p className="pitch__kicker">
-        AI made shipping free. The bottleneck moved — and nobody refactored for it.
+        AI made shipping free. Validation never scaled with it.
       </p>
     </div>
   )
 }
 
-function SlideProblem() {
+function SlideValidity() {
   return (
-    <div className="pitch__slide pitch__slide--problem">
-      <Tape><span>FIG. 02</span> THE BOTTLENECK</Tape>
+    <div className="pitch__slide pitch__slide--validity">
+      <Tape><span>FIG. 02</span> WHY THIS WORKS</Tape>
 
       <h2 className="pitch__heading">
-        Building was the bottleneck.<br />
-        <span className="flame">Now it's the human.</span>
+        Heatmaps measure 2 dimensions.<br />
+        We model <span className="flame">148.</span>
       </h2>
 
       <motion.div
-        className="pitch__problem-grid"
+        className="pitch__validity-grid"
         variants={STAGGER_PARENT}
         initial="initial"
         animate="animate"
       >
-        <motion.div variants={RISE_CHILD} className="pitch__stat">
-          <div className="pitch__stat-num">
-            n = <CountUp to={5} duration={1.0} />
+        <motion.div variants={RISE_CHILD} className="pitch__validity-cell">
+          <div className="pitch__validity-num">
+            <CountUp to={148} duration={1.4} />
           </div>
-          <div className="pitch__stat-body">
-            The "industry standard" user test. Five strangers, one room,
-            an hour of think-aloud — used to decide what billions of people see.
-          </div>
-        </motion.div>
-        <motion.div variants={RISE_CHILD} className="pitch__stat">
-          <div className="pitch__stat-num">
-            <CountUp to={6} duration={1.0} />&nbsp;weeks
-          </div>
-          <div className="pitch__stat-body">
-            Average wait for a moderated study. By the time the report lands,
-            you've shipped four times and forgotten the question.
+          <div className="pitch__validity-label">cortical regions</div>
+          <div className="pitch__validity-body">
+            modeled per second via Meta's <strong>TRIBE v2</strong> — an
+            fMRI-trained transformer over the Destrieux atlas.
           </div>
         </motion.div>
-        <motion.div variants={RISE_CHILD} className="pitch__stat">
-          <div className="pitch__stat-num">$0</div>
-          <div className="pitch__stat-body">
-            What heatmaps cost you and what they tell you. They show
-            where eyes <em>went</em> — never how the brain <em>felt.</em>
+        <motion.div variants={RISE_CHILD} className="pitch__validity-cell">
+          <div className="pitch__validity-num">
+            <CountUp to={30} duration={1.0} />
+          </div>
+          <div className="pitch__validity-label">production SaaS sites</div>
+          <div className="pitch__validity-body">
+            form the anomaly basis. We don't just predict response —
+            we know which patterns mean trouble.
           </div>
         </motion.div>
-      </motion.div>
-
-      <p className="pitch__kicker">
-        Every founder, designer, growth lead is shipping on a gut, calling it
-        taste, hoping the funnel forgives them. <strong>The funnel is the test.</strong>
-      </p>
-    </div>
-  )
-}
-
-function SlideStakes() {
-  return (
-    <div className="pitch__slide pitch__slide--stakes">
-      <Tape><span>FIG. 03</span> WHY IT MATTERS</Tape>
-
-      <h2 className="pitch__heading">
-        UX is the largest <span className="flame">unmeasured variable</span><br />
-        in the economy.
-      </h2>
-
-      <motion.div
-        className="pitch__stakes-grid"
-        variants={STAGGER_PARENT}
-        initial="initial"
-        animate="animate"
-      >
-        <motion.div variants={RISE_CHILD} className="pitch__stake">
-          <div className="pitch__stake-num">
-            $<CountUp to={5} duration={1.0} />T
+        <motion.div variants={RISE_CHILD} className="pitch__validity-cell">
+          <div className="pitch__validity-num">
+            <CountUp to={90} duration={1.0} />s
           </div>
-          <div className="pitch__stake-label">spent online in 2025</div>
-          <div className="pitch__stake-body">
-            Routed entirely by how a page <em>feels</em> in the first ten seconds.
-          </div>
-        </motion.div>
-        <motion.div variants={RISE_CHILD} className="pitch__stake">
-          <div className="pitch__stake-num">
-            <CountUp to={88} duration={1.4} />%
-          </div>
-          <div className="pitch__stake-label">of users won't return</div>
-          <div className="pitch__stake-body">
-            after one bad experience. The page they bounced from is still up.
-          </div>
-        </motion.div>
-        <motion.div variants={RISE_CHILD} className="pitch__stake">
-          <div className="pitch__stake-num">9 / 10</div>
-          <div className="pitch__stake-label">UX decisions ship blind</div>
-          <div className="pitch__stake-body">
-            because evidence is slow, expensive, and arrives too late to matter.
+          <div className="pitch__validity-label">end&#8209;to&#8209;end</div>
+          <div className="pitch__validity-body">
+            URL in, anomaly trace + diagnosis + redesigned v2 video out.
+            Closed loop, repeatable, no panel required.
           </div>
         </motion.div>
       </motion.div>
@@ -328,68 +280,371 @@ function SlideStakes() {
       <div className="pitch__quote">
         <span className="pitch__quote-mark">“</span>
         <p>
-          The team that can <strong>predict response</strong> ships better — not
-          eventually, but on the first try. Today, nobody can.
+          We don't read clicks. We forward-pass an fMRI-grade model over a
+          video of your page — and read predicted neural response,
+          <strong>&nbsp;second by second.</strong>
         </p>
+      </div>
+
+      <p className="pitch__validity-stake">
+        And the stakes: <strong><CountUp to={88} duration={1.4} />%</strong> of users
+        never return after one bad experience. <em>—&nbsp;Adobe</em>
+      </p>
+
+      <div className="pitch__sources">
+        SOURCES · Destrieux et al. 2010 <em>NeuroImage</em>
+        &nbsp;·&nbsp; Meta AI · TRIBE v2 (March 2026)
+        &nbsp;·&nbsp; Adobe Digital Trends
+        &nbsp;·&nbsp; Nielsen Norman Group
       </div>
     </div>
   )
 }
 
-function SlideApproach() {
-  const steps = [
-    {
-      n: '01',
-      title: 'Capture',
-      body: <>Paste any URL. We render it in headless Chromium and produce a <strong>10-second scrolling film</strong> — the stimulus.</>,
-    },
-    {
-      n: '02',
-      title: 'Encode',
-      body: <>Meta's <strong>TRIBE v2</strong> — an fMRI-trained transformer — predicts cortical response across the Destrieux atlas, frame by frame, second by second.</>,
-    },
-    {
-      n: '03',
-      title: 'Diagnose',
-      body: <>We pair raw scores with our own model trained on <strong>30 production SaaS sites</strong>. Out comes a per-second anomaly trace. Claude reads it like a user-research director.</>,
-    },
-    {
-      n: '04',
-      title: 'Rewrite',
-      body: <>Claude points at the broken second, we extract the frame, edit the live HTML, and <strong>pre-render v2</strong> back into the UI with a redesign and a predicted uplift.</>,
-    },
+/* ------------------------------------------------------------------ */
+/*  Architecture-slide subcomponents                                    */
+/* ------------------------------------------------------------------ */
+
+function ArchURL() {
+  return (
+    <div className="pitch__arch-node pitch__arch-url">
+      <div className="pitch__arch-label">URL</div>
+      <div className="pitch__arch-url-bar">
+        <span className="pitch__arch-url-scheme">https://</span>
+        <span className="pitch__arch-url-domain">stripe.com</span>
+        <motion.span
+          className="pitch__arch-caret"
+          animate={{ opacity: [1, 0, 1] }}
+          transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+          aria-hidden="true"
+        />
+      </div>
+      <div className="pitch__arch-sub">paste any link</div>
+    </div>
+  )
+}
+
+function ArchVideo() {
+  return (
+    <div className="pitch__arch-node pitch__arch-video">
+      <div className="pitch__arch-label">10s VIDEO</div>
+      <div className="pitch__arch-screen">
+        <div className="pitch__arch-screen-bezel">
+          <span /><span /><span />
+        </div>
+        <div className="pitch__arch-screen-page">
+          {/* Faked Stripe-style scrolling page. The whole strip
+              loops via CSS keyframes; everything inside is static. */}
+          <div className="pitch__arch-stripe pitch__arch-stripe--hero">
+            <div className="pitch__arch-stripe-nav">
+              <span /><span /><span /><span />
+            </div>
+            <div className="pitch__arch-stripe-h1" />
+            <div className="pitch__arch-stripe-h1 pitch__arch-stripe-h1--alt" />
+            <div className="pitch__arch-stripe-sub" />
+            <div className="pitch__arch-stripe-cta-row">
+              <div className="pitch__arch-stripe-cta" />
+              <div className="pitch__arch-stripe-cta pitch__arch-stripe-cta--ghost" />
+            </div>
+          </div>
+          <div className="pitch__arch-stripe pitch__arch-stripe--logos">
+            <span /><span /><span /><span /><span />
+          </div>
+          <div className="pitch__arch-stripe pitch__arch-stripe--cards">
+            <div /><div /><div />
+          </div>
+          <div className="pitch__arch-stripe pitch__arch-stripe--code">
+            <span className="pitch__arch-stripe-line" />
+            <span className="pitch__arch-stripe-line" />
+            <span className="pitch__arch-stripe-line pitch__arch-stripe-line--short" />
+            <span className="pitch__arch-stripe-line" />
+          </div>
+          <div className="pitch__arch-stripe pitch__arch-stripe--footer" />
+        </div>
+      </div>
+      <div className="pitch__arch-sub">scroll-recorded headlessly</div>
+    </div>
+  )
+}
+
+function ArchBrain() {
+  const regions = [
+    { cx: 42, cy: 50, r: 13, delay: 0.0,  c: 'flame' },
+    { cx: 78, cy: 36, r: 11, delay: 0.45, c: 'pow'   },
+    { cx: 96, cy: 60, r: 12, delay: 0.85, c: 'flame' },
+    { cx: 60, cy: 76, r: 10, delay: 1.20, c: 'pow'   },
+    { cx: 30, cy: 78, r:  9, delay: 0.65, c: 'flame' },
   ]
   return (
-    <div className="pitch__slide pitch__slide--approach">
-      <Tape><span>FIG. 04</span> A NEW APPROACH</Tape>
+    <div className="pitch__arch-node pitch__arch-brain">
+      <div className="pitch__arch-label pitch__arch-label--accent">TRIBE v2</div>
+      <svg viewBox="0 0 130 120" className="pitch__arch-brain-svg" aria-hidden="true">
+        <path
+          d="M 25 60 C 22 28, 60 12, 82 24 C 112 30, 118 60, 100 84 C 88 104, 48 102, 28 86 Z"
+          fill="var(--paper-2)"
+          stroke="var(--ink)"
+          strokeWidth="2"
+        />
+        {/* sulci */}
+        <path d="M 50 30 C 55 50, 50 70, 60 90" fill="none" stroke="var(--ink-mute)" strokeWidth="1" opacity="0.5" />
+        <path d="M 78 28 C 70 50, 80 70, 70 95" fill="none" stroke="var(--ink-mute)" strokeWidth="1" opacity="0.5" />
+        {regions.map((r, i) => (
+          <motion.circle
+            key={i}
+            cx={r.cx}
+            cy={r.cy}
+            r={r.r}
+            fill={r.c === 'flame' ? 'var(--flame)' : 'var(--pow)'}
+            stroke="var(--ink)"
+            strokeWidth="1"
+            initial={{ scale: 0.6, opacity: 0.3 }}
+            animate={{
+              scale: [0.6, 1.18, 0.6],
+              opacity: [0.35, 0.9, 0.35],
+            }}
+            transition={{
+              duration: 2,
+              delay: r.delay,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            style={{ transformOrigin: `${r.cx}px ${r.cy}px`, transformBox: 'fill-box' }}
+          />
+        ))}
+      </svg>
+      <div className="pitch__arch-sub">148 cortical regions / sec</div>
+    </div>
+  )
+}
+
+function ArchGraph() {
+  return (
+    <div className="pitch__arch-node pitch__arch-graph">
+      <div className="pitch__arch-label">PREDICTED</div>
+      <svg viewBox="0 0 140 80" className="pitch__arch-graph-svg" preserveAspectRatio="none" aria-hidden="true">
+        {/* grid */}
+        <line x1="0" y1="60" x2="140" y2="60" stroke="var(--hairline-2)" strokeWidth="0.5" />
+        <line x1="0" y1="40" x2="140" y2="40" stroke="var(--hairline-2)" strokeWidth="0.5" strokeDasharray="2 3" />
+        <line x1="0" y1="20" x2="140" y2="20" stroke="var(--hairline-2)" strokeWidth="0.5" />
+        {/* time axis ticks */}
+        <line x1="0" y1="75" x2="140" y2="75" stroke="var(--ink)" strokeWidth="0.5" opacity="0.4" />
+        {[0, 28, 56, 84, 112, 140].map((x, i) => (
+          <line key={i} x1={x} y1="73" x2={x} y2="77" stroke="var(--ink)" strokeWidth="0.5" opacity="0.4" />
+        ))}
+        {/* reward (dips at 0:04 = ~x60) */}
+        <motion.path
+          d="M 0 30 L 20 28 L 40 32 L 60 55 L 80 50 L 100 35 L 120 28 L 140 22"
+          fill="none"
+          stroke="var(--flame)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 2.0, ease: 'linear', repeat: Infinity, repeatType: 'loop', repeatDelay: 0.6 }}
+        />
+        {/* valence */}
+        <motion.path
+          d="M 0 40 L 30 42 L 50 38 L 80 45 L 110 36 L 140 32"
+          fill="none"
+          stroke="var(--ink)"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeDasharray="3 2"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 2.2, delay: 0.2, ease: 'linear', repeat: Infinity, repeatDelay: 0.5 }}
+        />
+        {/* surprise */}
+        <motion.path
+          d="M 0 50 L 25 48 L 55 55 L 85 48 L 115 52 L 140 50"
+          fill="none"
+          stroke="var(--ink-mute)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 2.4, delay: 0.35, ease: 'linear', repeat: Infinity, repeatDelay: 0.5 }}
+        />
+        {/* attention */}
+        <motion.path
+          d="M 0 25 L 20 30 L 40 28 L 60 38 L 80 42 L 100 30 L 140 25"
+          fill="none"
+          stroke="var(--good, oklch(0.72 0.18 145))"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeDasharray="3 2"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 2.6, delay: 0.5, ease: 'linear', repeat: Infinity, repeatDelay: 0.5 }}
+        />
+        {/* anomaly marker at the dip */}
+        <motion.circle
+          cx="60"
+          cy="55"
+          r="3.4"
+          fill="var(--flame)"
+          stroke="var(--ink)"
+          strokeWidth="1.4"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 1] }}
+          transition={{ duration: 0.6, delay: 1.2, repeat: Infinity, repeatDelay: 1.9 }}
+          style={{ transformOrigin: '60px 55px', transformBox: 'fill-box' }}
+        />
+      </svg>
+      <div className="pitch__arch-sub">5 metrics × 10 seconds</div>
+    </div>
+  )
+}
+
+function ArchHTML() {
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setV((x) => 1 - x), 2600)
+    return () => clearInterval(t)
+  }, [])
+  const v1 = (
+    <>
+      <span className="pitch__arch-code-tag">&lt;button</span>{' '}
+      <span className="pitch__arch-code-attr">class</span>=<span className="pitch__arch-code-str">"cta-sm"</span><span className="pitch__arch-code-tag">&gt;</span>{'\n'}
+      {'  '}Start now{'\n'}
+      <span className="pitch__arch-code-tag">&lt;/button&gt;</span>
+    </>
+  )
+  const v2 = (
+    <>
+      <span className="pitch__arch-code-tag">&lt;button</span>{' '}
+      <span className="pitch__arch-code-attr">class</span>=<span className="pitch__arch-code-str">"cta-hero"</span><span className="pitch__arch-code-tag">&gt;</span>{'\n'}
+      {'  '}Start free →{'\n'}
+      <span className="pitch__arch-code-tag">&lt;/button&gt;</span>
+    </>
+  )
+  return (
+    <div className="pitch__arch-node pitch__arch-html">
+      <div className="pitch__arch-label">CLAUDE EDITS HTML</div>
+      <div className="pitch__arch-code">
+        <div className="pitch__arch-code-tabs">
+          <span className={v === 0 ? 'is-active' : ''}>v1.html</span>
+          <span className={v === 1 ? 'is-active' : ''}>v2.html</span>
+        </div>
+        <AnimatePresence mode="wait">
+          <motion.pre
+            key={v}
+            className="pitch__arch-code-body"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.36, ease: EASE_OUT_QUINT }}
+          >
+            {v === 0 ? v1 : v2}
+          </motion.pre>
+        </AnimatePresence>
+      </div>
+      <div className="pitch__arch-sub">re-renders to v2 video</div>
+    </div>
+  )
+}
+
+function ArchArrow() {
+  return (
+    <svg className="pitch__arch-arrow" viewBox="0 0 36 16" aria-hidden="true">
+      <motion.line
+        x1="0" y1="8" x2="30" y2="8"
+        stroke="var(--ink)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.6, ease: EASE_OUT_QUINT }}
+      />
+      <motion.polygon
+        points="30,2 36,8 30,14"
+        fill="var(--ink)"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.6 }}
+      />
+    </svg>
+  )
+}
+
+function ArchLoop() {
+  return (
+    <svg
+      className="pitch__arch-loop"
+      viewBox="0 0 1000 120"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <marker
+          id="arch-arrow-end"
+          markerWidth="10"
+          markerHeight="10"
+          refX="6"
+          refY="5"
+          orient="auto"
+        >
+          <polygon points="0 0, 10 5, 0 10" fill="var(--flame)" />
+        </marker>
+      </defs>
+      <motion.path
+        d="M 870 8 Q 870 95 500 95 Q 360 95 360 18"
+        fill="none"
+        stroke="var(--flame)"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+        markerEnd="url(#arch-arrow-end)"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1.4, delay: 0.6, ease: EASE_OUT_QUINT }}
+      />
+      <text
+        x="500"
+        y="86"
+        fontFamily="var(--mono)"
+        fontSize="11"
+        fill="var(--flame-deep, oklch(0.55 0.22 35))"
+        letterSpacing="0.18em"
+        textAnchor="middle"
+        fontWeight="700"
+      >
+        OPTIMISER LOOP
+      </text>
+    </svg>
+  )
+}
+
+function SlideArchitecture() {
+  return (
+    <div className="pitch__slide pitch__slide--arch">
+      <Tape><span>FIG. 03</span> ARCHITECTURE</Tape>
 
       <h2 className="pitch__heading">
-        Not heatmaps. Not panels.<br />
-        We <span className="flame">read the page</span> like a viewer would.
+        URL in. <span className="flame">Redesign out.</span><br />
+        Scored, diagnosed, rewritten — on a closed loop.
       </h2>
 
       <motion.div
-        className="pitch__plates"
+        className="pitch__arch-flow"
         variants={STAGGER_PARENT}
         initial="initial"
         animate="animate"
       >
-        {steps.map((s) => (
-          <motion.div
-            key={s.n}
-            variants={RISE_CHILD}
-            className="pitch__plate"
-          >
-            <span className="pitch__plate-num">{s.n}</span>
-            <h3 className="pitch__plate-title">{s.title}</h3>
-            <p className="pitch__plate-body">{s.body}</p>
-          </motion.div>
-        ))}
+        <motion.div variants={RISE_CHILD}><ArchURL /></motion.div>
+        <motion.div variants={RISE_CHILD} className="pitch__arch-arrow-wrap"><ArchArrow /></motion.div>
+        <motion.div variants={RISE_CHILD}><ArchVideo /></motion.div>
+        <motion.div variants={RISE_CHILD} className="pitch__arch-arrow-wrap"><ArchArrow /></motion.div>
+        <motion.div variants={RISE_CHILD}><ArchBrain /></motion.div>
+        <motion.div variants={RISE_CHILD} className="pitch__arch-arrow-wrap"><ArchArrow /></motion.div>
+        <motion.div variants={RISE_CHILD}><ArchGraph /></motion.div>
+        <motion.div variants={RISE_CHILD} className="pitch__arch-arrow-wrap"><ArchArrow /></motion.div>
+        <motion.div variants={RISE_CHILD}><ArchHTML /></motion.div>
       </motion.div>
 
+      <ArchLoop />
+
       <p className="pitch__kicker">
-        Closed loop · URL in, redesigned page out — in roughly the time it takes
-        to make a coffee.
+        ~&nbsp;90 seconds, end to end. <span className="flame">No live traffic. No A/B. No panel.</span>
       </p>
     </div>
   )
@@ -398,11 +653,11 @@ function SlideApproach() {
 function SlideDemo() {
   return (
     <div className="pitch__slide pitch__slide--demo">
-      <Tape><span>FIG. 05</span> DEMO · LIVE</Tape>
+      <Tape><span>FIG. 04</span> DEMO · LIVE</Tape>
 
       <h2 className="pitch__heading">
-        Second four of your hero<br />
-        is <span className="flame">where attention dies.</span>
+        0:04 — predicted reward<br />
+        collapses in <span className="flame">visual cortex.</span>
       </h2>
 
       <div className="pitch__demo-stage">
@@ -420,6 +675,7 @@ function SlideDemo() {
             animate={{ scale: 1, rotate: -4, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 320, damping: 16, delay: 0.65 }}
           >
+            <span className="pitch__demo-stamp-tag">PREDICTED</span>
             REWARD&nbsp;
             <CountUp
               to={-38}
@@ -478,6 +734,7 @@ function SlideDemo() {
             animate={{ scale: 1, rotate: 4, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 320, damping: 16, delay: 1.5 }}
           >
+            <span className="pitch__demo-stamp-tag">PREDICTED</span>
             REWARD&nbsp;
             <CountUp
               to={14}
@@ -497,7 +754,7 @@ function SlideDemo() {
       >
         <motion.li variants={RISE_CHILD}>
           <span className="pitch__demo-tick">·</span>
-          Hero CTA shrunk below visual weight at 0:04 — re-stage.
+          0:04 — predicted reward signal collapses; hero CTA fell below visual weight. Re-staged.
         </motion.li>
         <motion.li variants={RISE_CHILD}>
           <span className="pitch__demo-tick">·</span>
@@ -515,7 +772,7 @@ function SlideDemo() {
 function SlideClose() {
   return (
     <div className="pitch__slide pitch__slide--close">
-      <Tape><span>FIG. 06</span> CLOSE</Tape>
+      <Tape><span>FIG. 05</span> CLOSE</Tape>
 
       <h2 className="pitch__close-title">
         Every PR ships through<br />
@@ -537,6 +794,11 @@ function SlideClose() {
         <span className="pitch__close-pill-input">your-website.com</span>
         <span className="pitch__close-pill-cta">SCAN</span>
       </motion.div>
+
+      <p className="pitch__close-ab">
+        A/B testing measures clicks <em>after</em> you ship.<br />
+        We model the brain <span className="flame">before.</span>
+      </p>
 
       <p className="pitch__close-question">
         What if no design ever had to ship blind again?
@@ -561,13 +823,12 @@ function SlideClose() {
 }
 
 const SLIDE_COMPONENTS = {
-  cover:    SlideCover,
-  hook:     SlideHook,
-  problem:  SlideProblem,
-  stakes:   SlideStakes,
-  approach: SlideApproach,
-  demo:     SlideDemo,
-  close:    SlideClose,
+  cover:        SlideCover,
+  hook:         SlideHook,
+  validity:     SlideValidity,
+  architecture: SlideArchitecture,
+  demo:         SlideDemo,
+  close:        SlideClose,
 }
 
 /* ------------------------------------------------------------------ */
@@ -641,7 +902,7 @@ export default function Pitch() {
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
             key={current.key}
-            className="pitch__slide-wrap"
+            className="pitch__slide-shell"
             variants={SLIDE_VARIANTS}
             custom={dir}
             initial="initial"
