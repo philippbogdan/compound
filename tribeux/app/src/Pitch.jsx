@@ -17,7 +17,6 @@ const SLIDES = [
   { key: 'cover',         label: 'COVER'         },
   { key: 'hook',          label: 'HOOK'          },
   { key: 'architecture',  label: 'ARCHITECTURE'  },
-  { key: 'close',         label: 'CLOSE'         },
 ]
 
 const TOTAL = SLIDES.length
@@ -139,21 +138,6 @@ function SlideCover() {
             <Words text="testing," className="flame" delay={0.20} reduceMotion={reduceMotion} /><br />
             <Words text="without users." delay={0.45} reduceMotion={reduceMotion} />
           </h1>
-          <p className="landing__lede">
-            Paste a URL. We render it, feed the film to a brain encoder, and
-            return predicted neural response — second by second. No panel.
-            No live traffic. <strong>No users.</strong>
-          </p>
-          <div className="pitch__cover-meta">
-            <span className="pitch__cover-meta-row">
-              <span className="pitch__cover-meta-key">EVENT</span>
-              <span>To The Americas · April 25–26, 2026</span>
-            </span>
-            <span className="pitch__cover-meta-row">
-              <span className="pitch__cover-meta-key">STACK</span>
-              <span>TRIBE v2 · Claude · Pydantic AI · Logfire · Render · Mubit</span>
-            </span>
-          </div>
         </div>
         <figure className="landing__figure">
           <motion.img
@@ -191,7 +175,7 @@ function SlideHook() {
         animate="animate"
       >
         <motion.h2 variants={RISE_CHILD} className="pitch__hook-line">
-          <span className="pitch__hook-strike">A website used to take a year.</span>
+          <span className="pitch__hook-strike">A product used to take a year.</span>
         </motion.h2>
         <motion.h2 variants={RISE_CHILD} className="pitch__hook-line">
           Now it takes <span className="flame">a prompt.</span>
@@ -200,7 +184,7 @@ function SlideHook() {
           variants={RISE_CHILD}
           className="pitch__hook-line pitch__hook-line--big"
         >
-          But nobody <span className="flame">tests it on real users.</span>
+          So <span className="flame">distribution is key.</span>
         </motion.h2>
       </motion.div>
 
@@ -533,28 +517,21 @@ function ArchLoop() {
         x="500"
         y="86"
         fontFamily="var(--mono)"
-        fontSize="11"
+        fontSize="10"
         fill="var(--flame-deep, oklch(0.55 0.22 35))"
-        letterSpacing="0.18em"
+        letterSpacing="0.02em"
         textAnchor="middle"
-        fontWeight="700"
+        fontWeight="500"
       >
-        OPTIMISER LOOP
+        optimised
       </text>
     </svg>
   )
 }
 
-function SlideArchitecture() {
+function SlideArchitecture({ showLoop = false }) {
   return (
-    <div className="pitch__slide pitch__slide--arch">
-      <Tape><span>FIG. 03</span> ARCHITECTURE</Tape>
-
-      <h2 className="pitch__heading">
-        URL in. <span className="flame">Redesign out.</span><br />
-        Scored, diagnosed, rewritten — on a closed loop.
-      </h2>
-
+    <div className="pitch__slide pitch__slide--arch pitch__slide--arch-bare">
       <motion.div
         className="pitch__arch-flow"
         variants={STAGGER_PARENT}
@@ -572,48 +549,7 @@ function SlideArchitecture() {
         <motion.div variants={RISE_CHILD}><ArchHTML /></motion.div>
       </motion.div>
 
-      <ArchLoop />
-
-      <p className="pitch__kicker">
-        ~&nbsp;90 seconds, end to end. <span className="flame">No live traffic. No A/B. No panel.</span>
-      </p>
-    </div>
-  )
-}
-
-function SlideClose() {
-  return (
-    <div className="pitch__slide pitch__slide--close">
-      <Tape><span>FIG. 04</span> CLOSE</Tape>
-
-      <h2 className="pitch__close-title">
-        Every PR ships through<br />
-        <span className="flame">Compound.</span>
-      </h2>
-
-      <p className="pitch__close-ab">
-        A/B testing measures clicks <em>after</em> you ship.<br />
-        We model the brain <span className="flame">before.</span>
-      </p>
-
-      <p className="pitch__close-question">
-        What if no design ever had to ship blind again?
-      </p>
-
-      <div className="pitch__close-foot">
-        <span>BUILT IN 24 HOURS</span>
-        <span>·</span>
-        <span>APPLE ML INTERN · IMPERIAL CS · 3× HACKATHON WINNER</span>
-      </div>
-
-      <motion.div
-        className="pitch__close-pow"
-        initial={{ scale: 0, rotate: -40, opacity: 0 }}
-        animate={{ scale: 1, rotate: 10, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 14, delay: 0.5 }}
-      >
-        <Starburst label="GO" color="flame" />
-      </motion.div>
+      {showLoop && <ArchLoop />}
     </div>
   )
 }
@@ -622,7 +558,6 @@ const SLIDE_COMPONENTS = {
   cover:        SlideCover,
   hook:         SlideHook,
   architecture: SlideArchitecture,
-  close:        SlideClose,
 }
 
 /* ------------------------------------------------------------------ */
@@ -630,29 +565,39 @@ const SLIDE_COMPONENTS = {
 /* ------------------------------------------------------------------ */
 
 export default function Pitch() {
-  const [{ idx, dir }, setState] = useState({ idx: 0, dir: 1 })
+  /* archSub gates the architecture slide's optimiser-loop reveal:
+     0 = bare diagram, 1 = loop arrow + 'optimised' label visible. */
+  const [{ idx, dir, archSub }, setState] = useState({ idx: 0, dir: 1, archSub: 0 })
 
   const goTo = useCallback((target) => {
     setState((prev) => {
       const clamped = Math.max(0, Math.min(TOTAL - 1, target))
-      if (clamped === prev.idx) return prev
-      return { idx: clamped, dir: clamped > prev.idx ? 1 : -1 }
+      if (clamped === prev.idx && prev.archSub === 0) return prev
+      return { idx: clamped, dir: clamped > prev.idx ? 1 : -1, archSub: 0 }
     })
   }, [])
 
   const goNext = useCallback(() => {
     setState((prev) => {
+      const onArch = SLIDES[prev.idx].key === 'architecture'
+      if (onArch && prev.archSub === 0) {
+        return { ...prev, archSub: 1 }
+      }
       const next = Math.min(TOTAL - 1, prev.idx + 1)
       if (next === prev.idx) return prev
-      return { idx: next, dir: 1 }
+      return { idx: next, dir: 1, archSub: 0 }
     })
   }, [])
 
   const goPrev = useCallback(() => {
     setState((prev) => {
+      const onArch = SLIDES[prev.idx].key === 'architecture'
+      if (onArch && prev.archSub === 1) {
+        return { ...prev, archSub: 0 }
+      }
       const next = Math.max(0, prev.idx - 1)
       if (next === prev.idx) return prev
-      return { idx: next, dir: -1 }
+      return { idx: next, dir: -1, archSub: 0 }
     })
   }, [])
 
@@ -681,6 +626,8 @@ export default function Pitch() {
 
   const current = SLIDES[idx]
   const Component = SLIDE_COMPONENTS[current.key]
+  const showLoop = current.key === 'architecture' && archSub > 0
+  const atDeckEnd = idx === TOTAL - 1 && (current.key !== 'architecture' || archSub === 1)
 
   return (
     <motion.section
@@ -704,7 +651,7 @@ export default function Pitch() {
             exit="exit"
             transition={SLIDE_TRANSITION}
           >
-            <Component />
+            <Component showLoop={showLoop} />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -743,7 +690,7 @@ export default function Pitch() {
             type="button"
             className="pitch__ctrl pitch__ctrl--primary"
             onClick={goNext}
-            disabled={idx === TOTAL - 1}
+            disabled={atDeckEnd}
             aria-label="Next slide"
           >NEXT ›</button>
         </div>
