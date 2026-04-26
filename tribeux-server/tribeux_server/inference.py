@@ -1,22 +1,40 @@
-"""Stub TRIBE v2 inference.
+"""TRIBE v2 inference.
 
-This is intentionally a no-op: it returns the JSON the user asserted is
-the correct output shape (samples/site_1.json), with the URL and
-timestamp filled in. The pipeline is wired to call this *exactly the
-way it would call a real model*, so swapping in real TRIBE v2 inference
-later only requires replacing this function.
+Two paths:
+
+- **Live** — when `TRIBE_INFERENCE_URL` is set (and `MOCK_TRIBE` is not
+  truthy), the captured frames are encoded into an mp4 with ffmpeg and
+  POSTed to `<URL>/score` as multipart `video`. The response JSON is
+  parsed straight into `InferenceResult`.
+
+- **Stub** — fallback when no URL is configured *or* when the live call
+  raises. Returns the JSON shape from `samples/site_1.json` with the URL
+  and timestamp filled in. Same contract as live so the pipeline doesn't
+  branch.
+
+`run_v2_inference` is always the deterministic stub-shifter — the v2
+re-inference is a *predicted* delta over v1, not a second model call.
 """
 from __future__ import annotations
 
+import asyncio
+import base64
 import copy
 import json
+import os
+import subprocess
+import sys
+import tempfile
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
+import httpx
+
 from .schemas import Frame, InferenceResult
 
 _SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+_SCORE_TIMEOUT_S = 300
 
 
 @lru_cache(maxsize=1)
@@ -25,20 +43,81 @@ def _base_inference() -> dict:
         return json.load(f)
 
 
-def run_tribe_inference(
+def _use_real_tribe() -> bool:
+    if os.environ.get("MOCK_TRIBE", "0") in ("1", "true", "True"):
+        return False
+    return bool(os.environ.get("TRIBE_INFERENCE_URL"))
+
+
+def _frames_to_mp4(frames: list[Frame], fps: int = 1) -> bytes:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        for f in frames:
+            png_b64 = f.data_url.split(",", 1)[-1]
+            (tmp_path / f"f_{f.t:03d}.png").write_bytes(base64.b64decode(png_b64))
+        out = tmp_path / "score.mp4"
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-framerate", str(fps),
+                "-i", str(tmp_path / "f_%03d.png"),
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                str(out),
+            ],
+            check=True,
+        )
+        return out.read_bytes()
+
+
+async def _post_score(video_bytes: bytes, *, label: str, filename: str = "video.mp4") -> dict:
+    base = os.environ["TRIBE_INFERENCE_URL"].rstrip("/")
+    async with httpx.AsyncClient(timeout=_SCORE_TIMEOUT_S) as client:
+        r = await client.post(
+            f"{base}/score",
+            files={"video": (filename, video_bytes, "video/mp4")},
+            data={"label": label},
+            headers={"ngrok-skip-browser-warning": "true"},
+        )
+    r.raise_for_status()
+    return r.json()
+
+
+async def run_tribe_inference(
     url: str,
     frames: list[Frame],
     *,
     site_id: str = "site_1",
     label: str | None = None,
     pipeline_version: str = "tribeux_v0.1_stub",
+    video_path: str | None = None,
 ) -> InferenceResult:
-    """Return an `InferenceResult` for the given URL.
+    """Score the rendered video for `url` and return an `InferenceResult`.
 
-    In production this would consume `frames` and run the TRIBE v2
-    encoder. Here we just fill in metadata so downstream stages see a
-    valid payload that lines up with the captured frames.
+    Prefers `video_path` when provided (mp4 produced by `render.render_url`).
+    Falls back to encoding `frames` into an mp4 with ffmpeg.
     """
+    if _use_real_tribe() and (video_path or frames):
+        try:
+            if video_path:
+                from pathlib import Path as _Path
+                video = _Path(video_path).read_bytes()
+                filename = _Path(video_path).name
+            else:
+                video = await asyncio.to_thread(_frames_to_mp4, frames)
+                filename = "frames.mp4"
+            data = await _post_score(video, label=label or site_id, filename=filename)
+            data.setdefault("metadata", {})
+            data["metadata"]["url_or_description"] = url
+            data["metadata"]["scored_at_utc"] = datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            data["metadata"]["pipeline_version"] = "tribeux_v0.1_live"
+            return InferenceResult.model_validate(data)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[inference] live /score failed, falling back to stub: {exc!r}", file=sys.stderr)
+
     base = copy.deepcopy(_base_inference())
     base["site_id"] = site_id
     base["label"] = label or site_id
@@ -59,8 +138,7 @@ def run_v2_inference(
 
     Each axis's `cohort_z` and `percentile` are nudged by the expected
     delta. We also shift the time series upward by the same amount so
-    the report's curves visibly improve. This keeps the contract with
-    the schema while making the stub's "after" plausibly different.
+    the report's curves visibly improve.
     """
     v2 = v1.model_copy(deep=True)
     v2.site_id = f"{v1.site_id}_v2"

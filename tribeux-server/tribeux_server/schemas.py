@@ -221,7 +221,7 @@ class Job(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     url: str
-    use_real_render: bool = False  # Default off — sample mode keeps the demo deterministic
+    use_real_render: bool = True  # Default on — frontend never passes the flag, demo wants real renders
 
 
 class AnalyzeResponse(BaseModel):

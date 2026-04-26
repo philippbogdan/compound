@@ -3,6 +3,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env from `tribeux-server/.env` first, then the repo root, before
+# any submodule reads os.environ.
+_HERE = Path(__file__).resolve().parent.parent
+for candidate in (_HERE / ".env", _HERE.parent / ".env"):
+    if candidate.is_file():
+        load_dotenv(candidate, override=False)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware

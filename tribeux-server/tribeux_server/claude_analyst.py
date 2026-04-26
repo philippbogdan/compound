@@ -32,6 +32,29 @@ from .schemas import (
 _AXES: tuple[Axis, ...] = ("attention", "self_relevance", "reward", "disgust")
 
 
+def _parse_json_object(text: str) -> dict:
+    """Parse a JSON object from Claude's reply.
+
+    Handles three common deviations from the "no prose, no code fences" instruction:
+    leading prose, ```json …``` fences, and trailing prose. Always returns the first
+    well-formed top-level object.
+    """
+    s = text.strip()
+    if s.startswith("```"):
+        s = s.split("\n", 1)[1] if "\n" in s else s[3:]
+        if s.endswith("```"):
+            s = s[:-3]
+        s = s.strip()
+        if s.lower().startswith("json"):
+            s = s[4:].strip()
+    if not s.startswith("{"):
+        i, j = s.find("{"), s.rfind("}")
+        if i == -1 or j == -1 or j <= i:
+            raise ValueError(f"no JSON object in response: {text[:200]!r}")
+        s = s[i : j + 1]
+    return json.loads(s)
+
+
 # ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
@@ -316,12 +339,12 @@ def _live(
         )
 
     resp = client.messages.create(
-        model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest"),
+        model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
     text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
-    data = json.loads(text)
+    data = _parse_json_object(text)
     return ClaudeFindings(
         summary=data["summary"],
         anomalies=[Anomaly.model_validate(a) for a in data.get("anomalies", [])],

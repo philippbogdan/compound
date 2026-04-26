@@ -14,9 +14,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
+import os
 from typing import Any
 
-from . import claude_analyst, frames, inference, jobs
+from . import claude_analyst, frames, inference, jobs, render
 from .cohort import load_cohort
 from .schemas import (
     AppliedPatch,
@@ -162,20 +163,32 @@ async def run_pipeline(job_id: str, url: str, *, use_real_render: bool) -> None:
             log("render", f"tribedomtree extracted {len(units)} DOM unit(s)")
             await beat()
 
+        video_path: str | None = None
+        page_text = ""
         async with stage("encode"):
             prog("encode", 0.18)
-            log("encode", "scroll capture · 13 timesteps · 256² downsample")
-            v1_frames, full_v1 = await frames.capture_frames(
-                url, n_timesteps=13, use_real_render=use_real_render
-            )
-            full_screenshot_v1 = full_v1 or full_screenshot_v1
-            log("encode", f"captured {len(v1_frames)} frame(s)")
+            if use_real_render:
+                log("encode", "url_to_video · 15s scroll · 256² @ 30fps")
+                rendered = await render.render_url(url, duration=15)
+                video_path = rendered["video_path"]
+                page_text = rendered["page_text"]
+                v1_frames = rendered["frames"]
+                full_screenshot_v1 = rendered["full_page_png"] or full_screenshot_v1
+                log("encode", f"video {video_path} · {len(page_text)} chars text · {len(v1_frames)} frame(s)")
+            else:
+                log("encode", "scroll capture · 13 timesteps · 256² downsample (sample mode)")
+                v1_frames, full_v1 = await frames.capture_frames(
+                    url, n_timesteps=13, use_real_render=False
+                )
+                full_screenshot_v1 = full_v1 or full_screenshot_v1
+                log("encode", f"captured {len(v1_frames)} frame(s)")
             await beat()
 
         async with stage("tribe"):
             prog("tribe", 0.35)
-            log("tribe", "tribev2.stub · forwarding 13 frames")
-            v1 = inference.run_tribe_inference(url, v1_frames, label=url)
+            mode = "live" if os.environ.get("TRIBE_INFERENCE_URL") and os.environ.get("MOCK_TRIBE", "0") not in ("1", "true", "True") else "stub"
+            log("tribe", f"tribev2.{mode} · POST /score · {len(v1_frames)} frames" + (f" · video={video_path}" if video_path else ""))
+            v1 = await inference.run_tribe_inference(url, v1_frames, label=url, video_path=video_path)
             log("tribe", "v1 headline cohort_z = " + _fmt_cohort(v1))
             await beat()
 
