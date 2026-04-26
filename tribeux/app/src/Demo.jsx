@@ -41,7 +41,7 @@ export default function Demo() {
   const [params] = useSearchParams()
   const nav = useNavigate()
   const urlFromQuery = params.get('url') || 'stripe.com'
-  const isStripe = /(^|\.)stripe\.com(\/|$)/i.test(urlFromQuery)
+  const isStripe = /(^|[/.])stripe\.com(\/|$)/i.test(urlFromQuery)
     || /^stripe(\.com)?$/i.test(urlFromQuery.trim())
   const existingJobId = params.get('job') || null
   // If we're handed a `job=<id>` (iteration continuation), subscribe to that
