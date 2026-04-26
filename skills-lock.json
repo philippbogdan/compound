@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "design-motion-principles": {
+      "source": "kylezantos/design-motion-principles",
+      "sourceType": "github",
+      "computedHash": "2367a68c9de4b850a8bb191033ad5009d0ab0da4243178127971301e601f7f02"
+    },
+    "frontend-design": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "68950c001f80b99a7a19e9d71b9323925e8f947e0473cc0adb19456ebbdfba25"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "computedHash": "bd24f9b2f67dfdac55f76a85877ce302fe75d6204d2b329d3d05342904abf336"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "computedHash": "0a413bf988d06481f69bb81df2070741c3ba12dd9f1be2706d57f259c905992d"
+    }
+  }
+}
