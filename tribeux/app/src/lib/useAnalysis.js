@@ -23,6 +23,7 @@ function makeApply(setJob, jobId) {
         checkpoints: [],
         result: null,
         error: null,
+        video_url: null,
       }
       switch (name) {
         case 'log':
@@ -33,8 +34,10 @@ function makeApply(setJob, jobId) {
           return { ...base, progress: payload }
         case 'status':
           return { ...base, status: payload.status }
+        case 'video':
+          return { ...base, video_url: payload?.video_url || null }
         case 'result':
-          return { ...base, result: payload, status: 'done' }
+          return { ...base, result: payload, status: 'done', video_url: base.video_url || payload?.video_url || null }
         case 'error':
           return { ...base, error: payload?.message || 'pipeline error', status: 'error' }
         case 'done':
@@ -71,6 +74,7 @@ export function useJob(jobId) {
       checkpoint: (p) => apply('checkpoint', p),
       progress: (p) => apply('progress', p),
       status: (p) => apply('status', p),
+      video: (p) => apply('video', p),
       result: (p) => apply('result', p),
       error: (p) => {
         apply('error', p)
@@ -125,6 +129,7 @@ export function useAnalysis(url, { auto = true } = {}) {
         checkpoint: (p) => apply('checkpoint', p),
         progress: (p) => apply('progress', p),
         status: (p) => apply('status', p),
+        video: (p) => apply('video', p),
         result: (p) => apply('result', p),
         error: (p) => {
           apply('error', p)

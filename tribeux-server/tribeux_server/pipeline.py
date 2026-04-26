@@ -212,6 +212,11 @@ async def run_pipeline(
                     f"{len(v1_frames)} frame(s) · scroll_log n={len(scroll_log)} · "
                     f"duration {actual_duration_s:.2f}s",
                 )
+                # Make the scrolling capture visible to the Demo page as
+                # soon as it exists — later stages (tribe / claude /
+                # compose) keep running, but the user sees the actual
+                # scraped video instead of a single stimulus PNG.
+                jobs.store.set_video(job_id, video_path)
             else:
                 log("encode", "scroll capture · 13 timesteps · 256² downsample (sample mode)")
                 v1_frames, full_v1 = await frames.capture_frames(

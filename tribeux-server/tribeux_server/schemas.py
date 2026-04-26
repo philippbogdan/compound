@@ -289,6 +289,10 @@ class Job(BaseModel):
     error: Optional[str] = None
     parent_job_id: Optional[str] = None
     iteration_index: int = 0
+    # Streaming URL for the scrolling capture mp4 — populated as soon as
+    # the encode stage finishes so the Demo page can render the actual
+    # scraped video while later stages (tribe / claude / compose) run.
+    video_url: Optional[str] = None
 
 
 class AnalyzeRequest(BaseModel):

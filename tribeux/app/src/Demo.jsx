@@ -63,6 +63,10 @@ export default function Demo() {
     const t = Math.min(frames.length - 1, Math.max(0, activeIdx))
     return frames[t]
   }, [frames, activeIdx])
+  // The scrolling-capture mp4 streams from the backend as soon as the
+  // encode stage completes, so the user watches the actual scraped page
+  // playing back while later stages (tribe / claude / compose) finish.
+  const videoUrl = job?.video_url || null
 
   const [bars, setBars] = useState(() => Array(24).fill(0.3))
   const tRef = useRef(0)
@@ -176,21 +180,38 @@ export default function Demo() {
 
         <div className="scan__video">
           <div className="scan__video-frame" aria-label="256 by 256 stimulus preview">
-            <AnimatePresence>
-              {stimulusFrame && (
-                <motion.img
-                  key={`stimulus-${stimulusFrame.t}`}
-                  src={stimulusFrame.data_url}
-                  alt={`stimulus frame at t=${stimulusFrame.t}s`}
-                  className="scan__video-media"
-                  initial={{ opacity: 0, filter: 'blur(8px)' }}
-                  animate={{ opacity: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, filter: 'blur(6px)' }}
-                  transition={{ duration: 0.34, ease: EASE_OUT_QUINT }}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              )}
-            </AnimatePresence>
+            {videoUrl ? (
+              <motion.video
+                key={`scan-video-${videoUrl}`}
+                src={videoUrl}
+                className="scan__video-media"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                initial={{ opacity: 0, filter: 'blur(8px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                transition={{ duration: 0.42, ease: EASE_OUT_QUINT }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <AnimatePresence>
+                {stimulusFrame && (
+                  <motion.img
+                    key={`stimulus-${stimulusFrame.t}`}
+                    src={stimulusFrame.data_url}
+                    alt={`stimulus frame at t=${stimulusFrame.t}s`}
+                    className="scan__video-media"
+                    initial={{ opacity: 0, filter: 'blur(8px)' }}
+                    animate={{ opacity: 1, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, filter: 'blur(6px)' }}
+                    transition={{ duration: 0.34, ease: EASE_OUT_QUINT }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                )}
+              </AnimatePresence>
+            )}
             <span className="scan__video-frame__sweep" aria-hidden="true" />
             <span className="scan__video-frame__stamp">256 × 256</span>
             <span className="scan__video-frame__time">

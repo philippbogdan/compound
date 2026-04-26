@@ -17,7 +17,7 @@ for candidate in (_HERE / ".env", _HERE.parent / ".env"):
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from . import jobs, pipeline
 from .schemas import AnalyzeRequest, AnalyzeResponse, Job
@@ -189,6 +189,26 @@ def get_chain(job_id: str) -> dict:
     return {"chain": summaries}
 
 
+@app.get("/api/jobs/{job_id}/video")
+def get_job_video(job_id: str) -> FileResponse:
+    """Stream the scrolling-capture mp4 produced by the encode stage.
+
+    The file lives in a per-job temp dir on the server; we resolve it
+    via the job store so the on-disk path never has to be exposed.
+    """
+    job = jobs.store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    video_path = jobs.store.get_video_path(job_id)
+    if not video_path or not Path(video_path).is_file():
+        raise HTTPException(status_code=404, detail="video not ready")
+    return FileResponse(
+        video_path,
+        media_type="video/mp4",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/api/jobs/{job_id}/events")
 async def job_events(job_id: str, request: Request) -> StreamingResponse:
     """Server-Sent Events stream for a job.
@@ -198,6 +218,7 @@ async def job_events(job_id: str, request: Request) -> StreamingResponse:
       event: progress    data: {stage, pct}
       event: checkpoint  data: {stage, kind, label, t, elapsed_ms}
       event: status      data: {status}
+      event: video       data: {video_url}
       event: result      data: <Report>
       event: error       data: {message}
       event: done        data: {}
