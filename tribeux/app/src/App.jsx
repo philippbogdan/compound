@@ -21,16 +21,24 @@ function AnimatedRoutes() {
   )
 }
 
+function Layout() {
+  const location = useLocation()
+  const isPitch = location.pathname === '/pitch'
+  return (
+    <div className={'shell' + (isPitch ? ' shell--bare' : '')}>
+      {!isPitch && <Masthead />}
+      <main>
+        <AnimatedRoutes />
+      </main>
+      {!isPitch && <Colophon />}
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="shell">
-        <Masthead />
-        <main>
-          <AnimatedRoutes />
-        </main>
-        <Colophon />
-      </div>
+      <Layout />
     </BrowserRouter>
   )
 }
