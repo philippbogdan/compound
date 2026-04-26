@@ -177,7 +177,7 @@ def _png_to_data_url(png: bytes | None) -> str | None:
 STAGE_LABELS = {
     "render":    "PLAYWRIGHT.CHROMIUM · TRIBEDOMTREE EXTRACT",
     "encode":    "SCROLL CAPTURE · 10 × 256²",
-    "tribe":     "TRIBE v2 (stub) · CORTICAL FORWARD",
+    "tribe":     "TRIBE v2 · CORTICAL FORWARD",
     "project":   "DESTRIEUX · 4 AFFECTIVE AXES",
     "benchmark": "COHORT · n=30 LANDING PAGES",
     "claude":    "ANTHROPIC · ANOMALY + REDESIGN",
@@ -474,7 +474,7 @@ async def run_pipeline(
         )
         jobs.store.finish(job_id, report)
 
-        # Cache the completed job for future demo re-runs.
+        # Cache the completed job for future demo re-runs (JSON + mp4).
         if cache.enabled():
             current_job = jobs.store.get(job_id)
             cps = [cp.model_dump() for cp in (current_job.checkpoints if current_job else [])]
@@ -484,6 +484,7 @@ async def run_pipeline(
                 logs=cached_logs,
                 checkpoints=cps,
                 progress_trace=cached_progress,
+                video_source_path=video_path,
             )
     except Exception as exc:  # noqa: BLE001
         # Emit the human-readable log line BEFORE marking the job failed.
@@ -521,8 +522,15 @@ async def _replay_cached(
     report_dict = hit.get("report") or {}
     cached_logs = hit.get("logs") or []
     cached_progress = hit.get("progress_trace") or []
+    cached_video_path = hit.get("video_path")
 
     jobs.store.log(job_id, "render", "CACHE HIT · replaying from disk")
+
+    # Wire the cached mp4 into the job store immediately so the video
+    # placeholder renders on the very first frame of the Demo page — no
+    # waiting for the live encode stage.
+    if cached_video_path:
+        jobs.store.set_video(job_id, cached_video_path)
 
     # Reproduce progress events in order with a short beat between stages.
     emitted_stages: set[str] = set()

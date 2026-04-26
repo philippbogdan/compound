@@ -241,7 +241,7 @@ export const MOCK_REPORT = {
 export const MOCK_STAGES = [
   { key: 'render',    log: 'playwright · navigated to https://example.com' },
   { key: 'encode',    log: 'encode · 10 × 256² scrolling capture · 4.8s tensor' },
-  { key: 'tribe',     log: 'tribev2.stub · forwarding 10 frames' },
+  { key: 'tribe',     log: 'tribev2 · forwarding 10 frames' },
   { key: 'project',   log: 'destrieux mapping · attention/self/reward/disgust' },
   { key: 'benchmark', log: 'v1 headline cohort_z = att +0.19 · self −0.94 · reward −0.57 · disgust +1.40' },
   { key: 'claude',    log: 'anomaly[disgust] t=11-12 σ=0.70' },

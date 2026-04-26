@@ -190,21 +190,22 @@ _SECTION_PRIORITY: dict[str, tuple[str, ...]] = {
 
 _VISUAL_STYLES: dict[tuple, str] = {
     # axis, severity -> inline CSS that produces an obviously different element.
-    ("attention", "mild"):     "font-weight:700; letter-spacing:-0.02em; color:#0f172a;",
-    ("attention", "moderate"): "font-size:1.35em; font-weight:800; line-height:1.05; letter-spacing:-0.03em; color:#0f172a;",
-    ("attention", "severe"):   "font-size:1.6em; font-weight:900; line-height:1.0; letter-spacing:-0.035em; color:#0f172a; background:linear-gradient(180deg,transparent 60%,#fde68a 60%); display:inline-block; padding:0 6px;",
+    # Palette-preserving: no color/background/border-color changes.
+    ("attention", "mild"):     "font-weight:700; letter-spacing:-0.02em; line-height:1.1;",
+    ("attention", "moderate"): "font-size:1.35em; font-weight:800; line-height:1.05; letter-spacing:-0.03em; max-width:26ch;",
+    ("attention", "severe"):   "font-size:1.6em; font-weight:900; line-height:1.0; letter-spacing:-0.035em; max-width:22ch; display:block; margin-bottom:12px;",
 
-    ("self_relevance", "mild"):     "color:#111827; font-weight:500;",
-    ("self_relevance", "moderate"): "font-size:1.15em; font-weight:600; color:#111827; max-width:30ch;",
-    ("self_relevance", "severe"):   "font-size:1.25em; font-weight:600; color:#111827; max-width:28ch; line-height:1.25;",
+    ("self_relevance", "mild"):     "font-weight:500; letter-spacing:-0.005em; line-height:1.35;",
+    ("self_relevance", "moderate"): "font-size:1.12em; font-weight:600; max-width:32ch; line-height:1.3; text-align:left;",
+    ("self_relevance", "severe"):   "font-size:1.2em; font-weight:600; max-width:28ch; line-height:1.25; text-align:left; margin-bottom:10px;",
 
-    ("reward", "mild"):     "background:#0f766e; color:#ffffff; padding:10px 18px; border-radius:8px; font-weight:600; border:none;",
-    ("reward", "moderate"): "background:#0f766e; color:#ffffff; padding:14px 26px; border-radius:10px; font-weight:700; font-size:1.05em; box-shadow:0 2px 8px rgba(15,118,110,0.25); border:none;",
-    ("reward", "severe"):   "background:linear-gradient(180deg,#10b981,#047857); color:#ffffff; padding:16px 32px; border-radius:12px; font-weight:700; font-size:1.15em; letter-spacing:-0.01em; box-shadow:0 4px 16px rgba(16,185,129,0.35); border:none;",
+    ("reward", "mild"):     "padding:10px 18px; border-radius:8px; font-weight:600; letter-spacing:-0.005em;",
+    ("reward", "moderate"): "padding:14px 26px; border-radius:10px; font-weight:700; font-size:1.05em; letter-spacing:-0.01em; box-shadow:0 2px 8px rgba(0,0,0,0.10);",
+    ("reward", "severe"):   "padding:16px 32px; border-radius:12px; font-weight:700; font-size:1.15em; letter-spacing:-0.01em; box-shadow:0 6px 18px rgba(0,0,0,0.14); transform:scale(1.02); display:inline-block;",
 
-    ("disgust", "mild"):     "background:#f4f4f5; color:#18181b; font-weight:500; padding:10px 18px; border-radius:8px; border:1px solid #e4e4e7;",
-    ("disgust", "moderate"): "background:#ffffff; color:#18181b; font-weight:500; padding:12px 22px; border-radius:10px; border:1px solid #d4d4d8; letter-spacing:0;",
-    ("disgust", "severe"):   "background:#ffffff; color:#18181b; font-weight:500; padding:14px 26px; border-radius:10px; border:1px solid #d4d4d8; letter-spacing:0; text-transform:none;",
+    ("disgust", "mild"):     "font-weight:500; letter-spacing:0; text-transform:none; padding:10px 18px; line-height:1.35;",
+    ("disgust", "moderate"): "font-weight:500; letter-spacing:0; text-transform:none; padding:12px 22px; border-radius:10px; line-height:1.4;",
+    ("disgust", "severe"):   "font-weight:500; letter-spacing:0; text-transform:none; padding:14px 26px; border-radius:10px; line-height:1.45; transform:scale(0.94);",
 }
 
 
@@ -226,6 +227,34 @@ def _inject_inline_style(head: str, css: str) -> str:
     return head[:end] + f' style="{css}"' + head[end:]
 
 
+def _above_fold_unit_ids(
+    timeline: Optional[TimelineBlock],
+    units: list[dict[str, Any]],
+    viewport_h: int = 1024,
+) -> set[str]:
+    """Return the set of unit IDs visible in the initial viewport (t=0).
+
+    Prefer the timeline's t=0 snapshot; fall back to a bbox.y < viewport_h
+    heuristic when the timeline isn't built (e.g. sample mode).
+    """
+    if timeline and timeline.timeline:
+        return set(timeline.timeline[0].visible_unit_ids or [])
+    out: set[str] = set()
+    for u in units:
+        uid = u.get("id")
+        if not uid:
+            continue
+        bb = u.get("bbox") or {}
+        try:
+            y = float(bb.get("y", 0))
+            h = float(bb.get("h", 0))
+        except (TypeError, ValueError):
+            continue
+        if y + h > 0 and y < viewport_h:
+            out.add(uid)
+    return out
+
+
 def _build_patch(
     *,
     target_axis: Axis,
@@ -233,9 +262,15 @@ def _build_patch(
     units: list[dict[str, Any]],
     rationale: str,
     exclude_ids: set[str],
+    allowed_ids: Optional[set[str]] = None,
 ) -> PatchProposal | None:
     if not units:
         return None
+    # Above-the-fold filter: only edit units the user sees on arrival.
+    if allowed_ids is not None:
+        units = [u for u in units if u.get("id") in allowed_ids]
+        if not units:
+            return None
     section_priority = _SECTION_PRIORITY[target_axis]
 
     def score(u: dict[str, Any], target_section: str) -> tuple[int, float]:
@@ -401,12 +436,14 @@ def _mock(
     # One patch for the primary worst axis, calibrated to severity.
     patches: list[PatchProposal] = []
     rationale = f"Worst axis vs cohort = {axis} at |z|={worst_abs_z:.2f}σ ({severity})."
+    allowed = _above_fold_unit_ids(timeline, units)
     p = _build_patch(
         target_axis=axis,
         severity=severity,
         units=units,
         rationale=rationale,
         exclude_ids=exclude,
+        allowed_ids=allowed,
     )
     if p is not None:
         patches.append(p)
@@ -459,10 +496,36 @@ _PROMPT = """You are TribeUX, an iterative UX optimizer running pass N of up to 
 live landing page. After each pass the brain re-scores the patched page so
 you can see whether your last edit actually moved the needle.
 
-Your edits MUST make a visible, tangible change a user would notice within
-one second of looking at the page. Copy-only tweaks that don't change how
-the page *looks* are failures. Think like a designer shipping a small but
-real redesign every pass — not a copywriter.
+CRITICAL: every edit you propose MUST be visible to the user within the
+first 0-2 seconds of viewing the page. Above the fold. No scrolling
+required. If the edit is invisible on first glance it has failed — the
+brain only reacts to what the retina sees.
+
+PRESERVE THE SITE'S COLOR PALETTE. Do not change colors, backgrounds,
+gradients, borders, fills, or strokes. You are remixing *shape, type, and
+placement* — not repainting the site. The brand should still feel like
+the brand; it should just read and land better.
+
+What you MAY change (use these aggressively):
+  - Typography: font-size, font-weight, letter-spacing, line-height,
+    text-transform, text-align, font-style
+  - Spacing: padding, margin, gap, row-gap, column-gap
+  - Shape: border-radius, border-width, border-style (but NOT border-color)
+  - Layout: display (flex/grid), flex-direction, align-items,
+    justify-content, flex-wrap, grid-template, order
+  - Sizing: width, max-width, min-height, height
+  - Position: position-static-to-relative, text-align, margin-auto
+  - Effects: box-shadow (use black/grey shadows only), transform
+    (scale/rotate/translate), opacity, filter: none/drop-shadow
+  - Copy itself (rewrite text, add a subtitle span, change microcopy)
+
+What you MUST NOT change:
+  - Any color property: color, background-color, background-image (except
+    removing an existing one to fall back to the site's default), border-color,
+    fill, stroke, caret-color.
+  - Brand names, prices, legal text, required disclosures.
+  - aria-*, alt, role, or tag semantics (button stays button; a stays a).
+  - id, href, type, name, data-* attributes scripts may depend on.
 
 # Inputs
 
@@ -471,73 +534,74 @@ real redesign every pass — not a copywriter.
     self_relevance (higher = feels personal),
     reward (higher = anticipated value),
     disgust (lower = less friction; high = worse).
-  Severity buckets by |z|: <0.5 normal | 0.5-1.0 mild | 1.0-2.0 moderate | >=2.0 severe.
+  Severity by |z|: <0.5 normal | 0.5-1.0 mild | 1.0-2.0 moderate | >=2.0 severe.
 - timeline[]: per-second {t, scroll_y, scores, visible_unit_ids}. Each row
   corresponds to ONE wall-clock second (1Hz, t=0..len-1) and aligns 1:1
-  to the `frame_at_<t>s` images. The units listed at second t were in
-  the viewport when the brain reacted. TRIBE has already compensated
-  for hemodynamic lag, so trust the t.
-- worst_moments[]: per-axis worst seconds — start diagnosis here.
+  to the `frame_at_<t>s` images. Units listed at second t were in the
+  viewport when the brain reacted. TRIBE has already compensated for
+  hemodynamic lag.
+- worst_moments[]: per-axis worst seconds — diagnosis pointer only.
 - units[]: DOM inventory — id, section, selector, text, outer_html,
-  computed_style, importance. Read computed_style to match the existing
-  palette/font/spacing so your edit integrates instead of clashing.
-- history[]: your prior passes with measured cohort_z_before vs after on
-  the targeted axis. Continue the direction when it worked; pivot angle
-  or axis when it didn't.
+  computed_style, importance. Read computed_style to stay on palette.
+- history[]: prior passes with cohort_z deltas. Continue if it worked,
+  pivot angle or axis if it didn't.
 - past_edit_unit_ids: never edit one of these again.
 
 # How patches are applied (exploit this)
 
-Each edit replaces an element via `el.outerHTML = after_html`. That means:
+Each edit replaces an element via `el.outerHTML = after_html`. So:
+  1. Inline `style="..."` in after_html overrides site CSS by specificity.
+     This is your reliable lever for layout/type/spacing changes.
+  2. You may replace the tag's inner structure (children, spans, SVG)
+     freely so long as semantics + attributes are preserved.
 
-1. **Inline `style="..."` in after_html overrides site CSS by specificity.**
-   Use it liberally — this is your most reliable lever for visible change.
-2. You may replace the tag's inner structure (children, nested spans,
-   SVG) freely so long as you preserve semantic role + attributes.
-3. You CANNOT rely on adding external stylesheets or <style> tags.
+Every edit should change at LEAST THREE visible non-color properties
+together (e.g., font-size + font-weight + letter-spacing; or
+padding + border-radius + transform; or text-align + margin + display).
+One change alone is too subtle. Three together always register.
 
-Every edit should change at least TWO visible properties together
-(color + size, padding + weight, background + border-radius, etc.) so the
-difference is obvious at a glance.
+# Design toolbox per axis (palette-preserving)
 
-# Design toolbox per axis
-
-- disgust → soften aggressive reds/oranges toward neutral or brand-primary;
-  strip "!", "LIMITED", "ONLY TODAY" shouting; drop font-weight below 700;
-  add generous padding; decrease font-size if it's screaming. Reduce
-  competing visual noise around the offender.
-- attention → enlarge hero/heading (+20-40%), bolder weight, tighter
-  line-height; add one accent element (underline, pill, colored dot) on
-  the key phrase; flatten competing on-screen elements.
+- disgust → larger padding, lighter font-weight (≤ 600), wider letter-spacing,
+  line-height ≥ 1.4, remove text-transform: uppercase, drop exclamation
+  marks, reduce element size (transform: scale(0.92-0.95)), soften shape
+  with border-radius.
+- attention → bigger hero/heading (font-size 1.25-1.6em), heavier weight
+  (700-900), tighter letter-spacing (-0.02 to -0.04em), tighter
+  line-height (1.0-1.1), add underline or border-bottom on key phrase,
+  tighter max-width so the line wraps where you want.
 - self_relevance → swap "our/we" for "your/you"; add a second-person
-  subtitle; reference a concrete role or use case; humanize with an
-  avatar/illustration if appropriate.
-- reward → make the value proposition concrete (a time savings, a dollar
-  number, a specific outcome); raise CTA visual weight (larger padding,
-  higher contrast, breathing room); add a micro-benefit line under CTA.
+  subtitle span; max-width 28-34ch so lines feel personal; bump line-height
+  1.3-1.45; text-align left when it was center.
+- reward → make CTA visually heavier: padding 14-20px 28-36px, font-weight 700,
+  font-size 1.05-1.2em, letter-spacing slight tighter, generous margin
+  below, box-shadow (grey/neutral only) for elevation.
 
 # Change magnitude MUST match severity
 
-| Worst |z| | Edit count | Per-edit scope                                            |
-| <0.5      | 0 — set done=true and return empty edits                                |
-| 0.5-1.0   | 1          | Restyle one element: combine color + weight + spacing changes so the element clearly looks different. |
-| 1.0-2.0   | 2          | Restyle + rewrite one key element AND adjust an adjacent one (e.g., hero title + CTA, headline + subhead). |
-| >=2.0     | 2-3        | Replace 1-2 elements wholesale with new HTML + inline styles, plus one supporting element adjustment. |
+| Worst |z| | Edit count | Per-edit scope                                        |
+| <0.5      | 0 — return done=true, empty edits.                                   |
+| 0.5-1.0   | 1          | Restyle one above-fold element across 3+ type/space/shape properties. |
+| 1.0-2.0   | 2          | Restyle + rewrite one key element AND adjust an adjacent one.      |
+| >=2.0     | 2-3        | Replace 1-2 elements wholesale (new inner HTML + inline styles), plus one support adjustment. |
 
-Target expected_delta_z proportional to severity:
+Target expected_delta_z scaled to severity:
 mild ±0.2-0.4 · moderate ±0.4-0.7 · severe ±0.7-1.2.
 Direction: positive on attention/self_relevance/reward, negative on disgust.
 
 # Hard rules — non-negotiable
 
+- ONLY edit units that appear in `timeline[0].visible_unit_ids` — the
+  first glimpse of the page (above the fold, viewport_h ~ 1024px). Units
+  the user would only see after scrolling don't shape first impressions.
+  If worst_moments spikes below the fold, still pick an above-fold unit.
 - Never redesign or delete a whole section (nav/hero/features/cta/footer).
 - Never modify prices, legal text, brand names, or required disclosures.
-- Never strip aria-*, alt, role, or change a tag's semantic role
-  (button stays button; a stays a). You MAY change style=, class=, inner
-  text, nested elements, and inline SVG.
-- Preserve id, href, type, name, data-* attributes that scripts may rely on.
-- Never edit a unit listed in past_edit_unit_ids.
-- Pick the unit whose visible_unit_ids appearance most coincides with the
+- Never strip aria-*, alt, role, or change a tag's semantic role.
+- Never edit a unit in past_edit_unit_ids.
+- Never change color/background/fill/stroke — palette preservation is
+  non-negotiable.
+- Pick the unit whose visible_unit_ids appearance coincides with the
   worst score seconds. Prefer section matching construct:
     disgust → cta/hero · attention → hero/nav ·
     self_relevance → hero/features · reward → cta/hero.
@@ -553,8 +617,8 @@ Direction: positive on attention/self_relevance/reward, negative on disgust.
      "target_axis": "attention|self_relevance|reward|disgust",
      "severity_bucket": "mild|moderate|severe",
      "before_html": "<original outer_html>",
-     "after_html": "<new html WITH inline style= overriding palette/layout>",
-     "rationale": "<why THIS specific visual change fixes THIS specific spike>",
+     "after_html": "<new html WITH inline style= that changes layout/type/space — NOT color>",
+     "rationale": "<why THIS specific placement/typography change fixes THIS specific spike>",
      "expected_delta_z": 0.0}
   ],
   "done": false
@@ -653,11 +717,18 @@ def _live(
     data = _parse_json_object(text)
 
     # Map Claude's edits[] onto PatchProposal. Be forgiving: some keys may
-    # be absent; fall back to values from the matching unit.
+    # be absent; fall back to values from the matching unit. Drop any edit
+    # targeting a unit outside the initial viewport (hard rule in prompt,
+    # but belt-and-braces in case the model ignores it).
     unit_index = {u.get("id"): u for u in units}
+    above_fold = _above_fold_unit_ids(timeline, units)
     patches: list[PatchProposal] = []
     for e in data.get("edits", []):
         unit_id = e.get("unit_id") or ""
+        if above_fold and unit_id not in above_fold:
+            # Skip below-the-fold edits silently — a dropped patch is
+            # better than editing something the user never sees.
+            continue
         base = unit_index.get(unit_id, {})
         selector = e.get("selector") or base.get("selector") or "body"
         section = e.get("section") or base.get("section")
