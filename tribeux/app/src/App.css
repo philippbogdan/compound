@@ -721,8 +721,10 @@
   opacity: 0.5;
 }
 /* With flex-direction: column-reverse the LAST DOM child renders at the top
-   visually — that's the newest log line. Animate only the newest. */
-.scan__log .log-line:last-child {
+   visually — that's the newest log line. Animate only the newest. JS marks
+   the trailing stream item with `is-newest` so this still works when the
+   caret/error rows render after the stream. */
+.scan__log .log-line.is-newest {
   color: var(--ink);
   opacity: 1;
   animation: log-slam 380ms var(--ease-out-5);
@@ -761,7 +763,18 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.scan__log .log-line--caret span:last-child .caret {
+/* Caret row mirrors `.log-line` layout (same 3-column grid, same metadata
+   tinting) but isn't a `.log-line` itself — that keeps `:last-child` rules
+   pointing at the newest actual log entry, not the caret. */
+.scan__log__caret {
+  display: grid;
+  grid-template-columns: 56px 96px 1fr;
+  gap: 14px;
+  opacity: 1;
+}
+.scan__log__caret span:first-child { color: var(--ink-whisper); }
+.scan__log__caret span:nth-child(2) { color: var(--ink-mute); }
+.scan__log__caret span:last-child .caret {
   display: inline-block;
   color: var(--flame);
   animation: caret-blink 900ms steps(2, jump-none) infinite;
