@@ -367,11 +367,16 @@ function CliStream({ logs, checkpoints, status, error }) {
         <span>tribeux-server · POST /api/analyze · subscribed to SSE /api/jobs/&lt;id&gt;/events</span>
       </div>
       {stream.map((it, i) => {
+        // Mark the LAST item with `is-newest` so CSS can highlight it
+        // regardless of trailing siblings (caret, error). Using `:last-child`
+        // alone fails when other elements render after the stream.
+        const newest = i === stream.length - 1 ? ' is-newest' : ''
         if (it.kind === 'checkpoint') {
           const cp = it.data
           const cls =
             'log-line log-line--cp ' +
-            (cp.kind === 'begin' ? 'is-begin' : cp.kind === 'fail' ? 'is-fail' : 'is-end')
+            (cp.kind === 'begin' ? 'is-begin' : cp.kind === 'fail' ? 'is-fail' : 'is-end') +
+            newest
           const glyph = cp.kind === 'begin' ? '▸' : cp.kind === 'fail' ? '✗' : '✓'
           const elapsed = cp.kind !== 'begin' ? `· ${fmtMs(cp.elapsed_ms)}` : ''
           return (
@@ -384,7 +389,7 @@ function CliStream({ logs, checkpoints, status, error }) {
         }
         const line = it.data
         return (
-          <div className="log-line" key={`log-${i}`} style={{ animationDelay: `${i * 16}ms` }}>
+          <div className={'log-line' + newest} key={`log-${i}`} style={{ animationDelay: `${i * 16}ms` }}>
             <span>{line.t}</span>
             <span>{line.stage}</span>
             <span>{line.message}</span>
@@ -392,7 +397,11 @@ function CliStream({ logs, checkpoints, status, error }) {
         )
       })}
       {isRunning && (
-        <div className="log-line log-line--caret">
+        // Caret is intentionally NOT a `.log-line` — keeping that class would
+        // make this the `:last-child` (since `column-reverse` puts the last
+        // DOM child at the top), stealing the slam-in highlight from the
+        // newest actual log row.
+        <div className="scan__log__caret">
           <span>--:--</span>
           <span>·</span>
           <span><span className="caret">▮</span></span>
