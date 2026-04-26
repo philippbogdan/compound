@@ -513,15 +513,25 @@ function ArchLoop() {
         animate={{ pathLength: 1 }}
         transition={{ duration: 1.4, delay: 0.6, ease: EASE_OUT_QUINT }}
       />
+      {/* "optimised" label — sits in the U of the loop, with a paper-coloured
+          backing rect so the dashed arrow doesn't visually run through it. */}
+      <rect
+        x="455"
+        y="80"
+        width="90"
+        height="18"
+        fill="var(--paper)"
+        rx="2"
+      />
       <text
         x="500"
-        y="86"
+        y="93"
         fontFamily="var(--mono)"
-        fontSize="10"
+        fontSize="13"
         fill="var(--flame-deep, oklch(0.55 0.22 35))"
-        letterSpacing="0.02em"
+        letterSpacing="0"
         textAnchor="middle"
-        fontWeight="500"
+        fontWeight="600"
       >
         optimised
       </text>
