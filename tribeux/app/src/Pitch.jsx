@@ -16,9 +16,7 @@ import { EASE_OUT_QUINT, PAGE_TRANSITION, PAGE_VARIANTS } from './motion'
 const SLIDES = [
   { key: 'cover',         label: 'COVER'         },
   { key: 'hook',          label: 'HOOK'          },
-  { key: 'validity',      label: 'WHY IT WORKS'  },
   { key: 'architecture',  label: 'ARCHITECTURE'  },
-  { key: 'demo',          label: 'DEMO'          },
   { key: 'close',         label: 'CLOSE'         },
 ]
 
@@ -130,39 +128,44 @@ function SlideCover() {
   const reduceMotion = useReducedMotion()
   return (
     <div className="pitch__slide pitch__slide--cover">
-      <div className="pitch__cover-grid">
+      <div className="landing__grid">
         <div>
-          <Tape><span>FIG. 00</span> COMPOUND · 3 MIN</Tape>
-          <h1 className="pitch__title">
-            <Words text="User data" reduceMotion={reduceMotion} /><br />
-            <Words text="without users." className="flame" delay={0.30} reduceMotion={reduceMotion} />
+          <div className="landing__tape">
+            <span>FIG. 01</span>
+            NEURAL RESPONSE, PREDICTED
+          </div>
+          <h1 className="landing__title">
+            <Words text="User" reduceMotion={reduceMotion} />{' '}
+            <Words text="testing," className="flame" delay={0.20} reduceMotion={reduceMotion} /><br />
+            <Words text="without users." delay={0.45} reduceMotion={reduceMotion} />
           </h1>
-          <p className="pitch__lede">
-            <strong>Compound</strong> predicts how the human brain responds to
-            your website — before you ever ship it to one.
+          <p className="landing__lede">
+            Paste a URL. We render it, feed the film to a brain encoder, and
+            return predicted neural response — second by second. No panel.
+            No live traffic. <strong>No users.</strong>
           </p>
-          <div className="pitch__byline">
-            <span className="pitch__byline-row">
-              <span className="pitch__byline-key">EVENT</span>
+          <div className="pitch__cover-meta">
+            <span className="pitch__cover-meta-row">
+              <span className="pitch__cover-meta-key">EVENT</span>
               <span>To The Americas · April 25–26, 2026</span>
             </span>
-            <span className="pitch__byline-row">
-              <span className="pitch__byline-key">STACK</span>
+            <span className="pitch__cover-meta-row">
+              <span className="pitch__cover-meta-key">STACK</span>
               <span>TRIBE v2 · Claude · Pydantic AI · Logfire · Render · Mubit</span>
             </span>
           </div>
         </div>
-        <figure className="pitch__cover-figure">
+        <figure className="landing__figure">
           <motion.img
             src="/sticker-browser-brain.png"
-            alt="Halftone sticker — a browser window wrapped in a brain on fire."
-            className="pitch__cover-sticker"
-            initial={{ scale: 0.85, rotate: -6, opacity: 0 }}
-            animate={{ scale: 1, rotate: -3, opacity: 1 }}
+            alt="Halftone sticker — a browser window wrapped in a brain on fire, encircled by arrows"
+            className="landing__sticker"
+            initial={{ scale: 0.92, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.2, ease: EASE_OUT_QUINT }}
           />
           <motion.div
-            className="pitch__cover-pow"
+            className="landing__figure__pow"
             initial={{ scale: 0, rotate: -40, opacity: 0 }}
             animate={{ scale: 1, rotate: 8, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 320, damping: 14, delay: 0.7 }}
@@ -179,7 +182,7 @@ function SlideHook() {
   const reduceMotion = useReducedMotion()
   return (
     <div className="pitch__slide pitch__slide--hook">
-      <Tape><span>FIG. 01</span> WHERE WE ARE · APRIL 2026</Tape>
+      <Tape><span>FIG. 02</span> WHERE WE ARE · APRIL 2026</Tape>
 
       <motion.div
         className="pitch__hook-stack"
@@ -197,7 +200,7 @@ function SlideHook() {
           variants={RISE_CHILD}
           className="pitch__hook-line pitch__hook-line--big"
         >
-          It still ships <span className="flame">without testing.</span>
+          But nobody <span className="flame">tests it on real users.</span>
         </motion.h2>
       </motion.div>
 
@@ -225,78 +228,6 @@ function SlideHook() {
       <p className="pitch__kicker">
         AI made shipping free. Validation never scaled with it.
       </p>
-    </div>
-  )
-}
-
-function SlideValidity() {
-  return (
-    <div className="pitch__slide pitch__slide--validity">
-      <Tape><span>FIG. 02</span> WHY THIS WORKS</Tape>
-
-      <h2 className="pitch__heading">
-        Heatmaps measure 2 dimensions.<br />
-        We model <span className="flame">148.</span>
-      </h2>
-
-      <motion.div
-        className="pitch__validity-grid"
-        variants={STAGGER_PARENT}
-        initial="initial"
-        animate="animate"
-      >
-        <motion.div variants={RISE_CHILD} className="pitch__validity-cell">
-          <div className="pitch__validity-num">
-            <CountUp to={148} duration={1.4} />
-          </div>
-          <div className="pitch__validity-label">cortical regions</div>
-          <div className="pitch__validity-body">
-            modeled per second via Meta's <strong>TRIBE v2</strong> — an
-            fMRI-trained transformer over the Destrieux atlas.
-          </div>
-        </motion.div>
-        <motion.div variants={RISE_CHILD} className="pitch__validity-cell">
-          <div className="pitch__validity-num">
-            <CountUp to={30} duration={1.0} />
-          </div>
-          <div className="pitch__validity-label">production SaaS sites</div>
-          <div className="pitch__validity-body">
-            form the anomaly basis. We don't just predict response —
-            we know which patterns mean trouble.
-          </div>
-        </motion.div>
-        <motion.div variants={RISE_CHILD} className="pitch__validity-cell">
-          <div className="pitch__validity-num">
-            <CountUp to={90} duration={1.0} />s
-          </div>
-          <div className="pitch__validity-label">end&#8209;to&#8209;end</div>
-          <div className="pitch__validity-body">
-            URL in, anomaly trace + diagnosis + redesigned v2 video out.
-            Closed loop, repeatable, no panel required.
-          </div>
-        </motion.div>
-      </motion.div>
-
-      <div className="pitch__quote">
-        <span className="pitch__quote-mark">“</span>
-        <p>
-          We don't read clicks. We forward-pass an fMRI-grade model over a
-          video of your page — and read predicted neural response,
-          <strong>&nbsp;second by second.</strong>
-        </p>
-      </div>
-
-      <p className="pitch__validity-stake">
-        And the stakes: <strong><CountUp to={88} duration={1.4} />%</strong> of users
-        never return after one bad experience. <em>—&nbsp;Adobe</em>
-      </p>
-
-      <div className="pitch__sources">
-        SOURCES · Destrieux et al. 2010 <em>NeuroImage</em>
-        &nbsp;·&nbsp; Meta AI · TRIBE v2 (March 2026)
-        &nbsp;·&nbsp; Adobe Digital Trends
-        &nbsp;·&nbsp; Nielsen Norman Group
-      </div>
     </div>
   )
 }
@@ -650,150 +581,15 @@ function SlideArchitecture() {
   )
 }
 
-function SlideDemo() {
-  return (
-    <div className="pitch__slide pitch__slide--demo">
-      <Tape><span>FIG. 04</span> DEMO · LIVE</Tape>
-
-      <h2 className="pitch__heading">
-        0:04 — predicted reward<br />
-        collapses in <span className="flame">visual cortex.</span>
-      </h2>
-
-      <div className="pitch__demo-stage">
-        <motion.figure
-          className="pitch__demo-frame pitch__demo-frame--before"
-          initial={{ opacity: 0, x: -28, rotate: -3 }}
-          animate={{ opacity: 1, x: 0, rotate: -1.2 }}
-          transition={{ duration: 0.55, delay: 0.2, ease: EASE_OUT_QUINT }}
-        >
-          <figcaption>BEFORE · v1</figcaption>
-          <img src="/airbnb-mock.png" alt="The original homepage frame at second 04." />
-          <motion.span
-            className="pitch__demo-stamp pitch__demo-stamp--bad"
-            initial={{ scale: 0.6, rotate: -10, opacity: 0 }}
-            animate={{ scale: 1, rotate: -4, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 16, delay: 0.65 }}
-          >
-            <span className="pitch__demo-stamp-tag">PREDICTED</span>
-            REWARD&nbsp;
-            <CountUp
-              to={-38}
-              duration={1.0}
-              format={(n) => `↓ ${Math.abs(Math.round(n))}%`}
-            />
-          </motion.span>
-        </motion.figure>
-
-        <div className="pitch__demo-pipe">
-          <motion.div
-            className="pitch__demo-pipe-line"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: 0.7, delay: 0.5, ease: EASE_OUT_QUINT }}
-            style={{ transformOrigin: 'left center' }}
-          />
-          <motion.div
-            className="pitch__demo-pipe-row"
-            variants={STAGGER_PARENT}
-            initial="initial"
-            animate="animate"
-            transition={{ delayChildren: 0.5 }}
-          >
-            <motion.span variants={RISE_CHILD} className="pitch__demo-pipe-step">URL</motion.span>
-            <motion.span variants={RISE_CHILD}>›</motion.span>
-            <motion.span variants={RISE_CHILD} className="pitch__demo-pipe-step">VIDEO</motion.span>
-            <motion.span variants={RISE_CHILD}>›</motion.span>
-            <motion.span variants={RISE_CHILD} className="pitch__demo-pipe-step pitch__demo-pipe-step--accent">TRIBE v2</motion.span>
-            <motion.span variants={RISE_CHILD}>›</motion.span>
-            <motion.span variants={RISE_CHILD} className="pitch__demo-pipe-step">CLAUDE</motion.span>
-            <motion.span variants={RISE_CHILD}>›</motion.span>
-            <motion.span variants={RISE_CHILD} className="pitch__demo-pipe-step">v2</motion.span>
-          </motion.div>
-          <motion.div
-            className="pitch__demo-pipe-meta"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: 1.3 }}
-          >
-            ~ 90 seconds, end to end
-          </motion.div>
-        </div>
-
-        <motion.figure
-          className="pitch__demo-frame pitch__demo-frame--after"
-          initial={{ opacity: 0, x: 28, rotate: 3 }}
-          animate={{ opacity: 1, x: 0, rotate: 1 }}
-          transition={{ duration: 0.55, delay: 1.0, ease: EASE_OUT_QUINT }}
-        >
-          <figcaption>AFTER · v2</figcaption>
-          <img src="/airbnb-mock.png" alt="The redesigned homepage frame at second 04." />
-          <motion.span
-            className="pitch__demo-stamp pitch__demo-stamp--good"
-            initial={{ scale: 0.6, rotate: 12, opacity: 0 }}
-            animate={{ scale: 1, rotate: 4, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 16, delay: 1.5 }}
-          >
-            <span className="pitch__demo-stamp-tag">PREDICTED</span>
-            REWARD&nbsp;
-            <CountUp
-              to={14}
-              duration={1.0}
-              format={(n) => `↑ +${Math.round(n)}%`}
-            />
-          </motion.span>
-        </motion.figure>
-      </div>
-
-      <motion.ul
-        className="pitch__demo-recs"
-        variants={STAGGER_PARENT}
-        initial="initial"
-        animate="animate"
-        transition={{ delayChildren: 1.7 }}
-      >
-        <motion.li variants={RISE_CHILD}>
-          <span className="pitch__demo-tick">·</span>
-          0:04 — predicted reward signal collapses; hero CTA fell below visual weight. Re-staged.
-        </motion.li>
-        <motion.li variants={RISE_CHILD}>
-          <span className="pitch__demo-tick">·</span>
-          Affective valence dips on second card — replace stock photo.
-        </motion.li>
-        <motion.li variants={RISE_CHILD}>
-          <span className="pitch__demo-tick">·</span>
-          Footer dominates surprise score — cut by 40%.
-        </motion.li>
-      </motion.ul>
-    </div>
-  )
-}
-
 function SlideClose() {
   return (
     <div className="pitch__slide pitch__slide--close">
-      <Tape><span>FIG. 05</span> CLOSE</Tape>
+      <Tape><span>FIG. 04</span> CLOSE</Tape>
 
       <h2 className="pitch__close-title">
         Every PR ships through<br />
         <span className="flame">Compound.</span>
       </h2>
-
-      <p className="pitch__close-lede">
-        AI shipped the code. We finished the loop. The first time a model
-        gets to see your page through a human, before a human sees it at all.
-      </p>
-
-      <motion.div
-        className="pitch__close-pill"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.25, ease: EASE_OUT_QUINT }}
-      >
-        <span className="pitch__close-pill-num">URL ▸</span>
-        <span className="pitch__close-pill-input">your-website.com</span>
-        <span className="pitch__close-pill-cta">SCAN</span>
-      </motion.div>
 
       <p className="pitch__close-ab">
         A/B testing measures clicks <em>after</em> you ship.<br />
@@ -825,9 +621,7 @@ function SlideClose() {
 const SLIDE_COMPONENTS = {
   cover:        SlideCover,
   hook:         SlideHook,
-  validity:     SlideValidity,
   architecture: SlideArchitecture,
-  demo:         SlideDemo,
   close:        SlideClose,
 }
 
