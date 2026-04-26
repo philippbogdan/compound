@@ -26,6 +26,10 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._starts: dict[str, datetime] = {}
         self._subscribers: dict[str, list[asyncio.Queue[tuple[str, Any]]]] = {}
+        # Server-local mp4 paths produced by the encode stage. Kept out
+        # of the Job schema so the on-disk path never leaks to clients —
+        # the client only sees the streaming URL set on `Job.video_url`.
+        self._video_paths: dict[str, str] = {}
 
     @staticmethod
     def _now() -> str:
@@ -95,6 +99,7 @@ class JobStore:
             status = job.status if job else None
             result = job.result if job else None
             error = job.error if job else None
+            video_url = job.video_url if job else None
 
         # Replay buffered state in chronological-ish order.
         for cp in checkpoints:
@@ -105,6 +110,10 @@ class JobStore:
             q.put_nowait(("progress", progress.model_dump()))
         if status is not None:
             q.put_nowait(("status", {"status": status}))
+        # Replay video URL ahead of result so reconnects (e.g. Report
+        # deep-links) can render the scrolling capture immediately.
+        if video_url:
+            q.put_nowait(("video", {"video_url": video_url}))
         if status == "done" and result is not None:
             q.put_nowait(("result", result.model_dump()))
             q.put_nowait(("done", {}))
@@ -177,6 +186,26 @@ class JobStore:
             job.checkpoints.append(cp)
             job.updated_at = self._now()
         self._broadcast(job_id, "checkpoint", cp.model_dump())
+
+    def set_video(self, job_id: str, video_path: str) -> None:
+        """Register the scrolling-capture mp4 for `job_id` and broadcast.
+
+        The path stays server-side; subscribers receive a `video` SSE
+        event carrying the public streaming URL so they can wire up
+        `<video src=...>` while later pipeline stages keep running.
+        """
+        video_url = f"/api/jobs/{job_id}/video"
+        with self._lock:
+            self._video_paths[job_id] = video_path
+            job = self._jobs.get(job_id)
+            if job is not None:
+                job.video_url = video_url
+                job.updated_at = self._now()
+        self._broadcast(job_id, "video", {"video_url": video_url})
+
+    def get_video_path(self, job_id: str) -> Optional[str]:
+        with self._lock:
+            return self._video_paths.get(job_id)
 
     def finish(self, job_id: str, result) -> None:  # type: ignore[no-untyped-def]
         with self._lock:
