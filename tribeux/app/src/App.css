@@ -1310,89 +1310,112 @@
   gap: 16px;
 }
 
-/* diff */
-.diff {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  border: 2px solid var(--ink);
-  box-shadow: var(--shadow-hard-lg);
-  margin-top: 16px;
-  position: relative;
-}
-.diff__side {
-  position: relative;
-  aspect-ratio: 4 / 3;
-  background: var(--paper-deep);
-  overflow: hidden;
-  background-image: radial-gradient(var(--ink) 18%, transparent 20%);
-  background-size: 8px 8px;
-}
-/* hero variant — wider aspect so the side-by-side reads big at the top */
-.diff--hero { margin-top: 0; }
-.diff--hero .diff__side { aspect-ratio: 16 / 10; }
-.diff--hero .diff__side__stamp {
-  font-size: 13px;
-  padding: 6px 14px;
-  letter-spacing: 0.18em;
-}
-.diff--hero .starburst {
-  width: 168px; height: 168px;
-  bottom: -28px; right: -22px;
-}
-.diff__side + .diff__side { border-left: 2px solid var(--ink); }
-.diff__side__stamp {
-  position: absolute;
-  top: 12px; left: 12px;
+/* before/after slider — drag the vertical handle to wipe between v1 and v2 */
+.col-head__hint {
+  margin-left: auto;
   font-family: var(--mono);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  background: var(--ink);
-  color: var(--paper);
-  padding: 4px 10px;
-  z-index: 2;
+  color: var(--ink-mute);
 }
-.diff__side.is-after .diff__side__stamp {
-  background: var(--flame);
-  color: var(--ink);
+.ba-slider {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-hard-lg);
+  background: var(--paper-deep);
+  background-image: radial-gradient(var(--ink) 18%, transparent 20%);
+  background-size: 8px 8px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: ew-resize;
 }
-
-/* yellow starburst stamp on +14% */
-.diff__delta {
+.ba-slider__layer {
   position: absolute;
-  bottom: -18px;
-  right: -18px;
-  width: 124px; height: 124px;
-  display: grid;
-  place-items: center;
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: 22px;
-  color: var(--ink);
-  letter-spacing: -0.02em;
-  text-align: center;
-  line-height: 1;
-  background:
-    conic-gradient(from 0deg,
-      var(--pow) 0 22deg, transparent 22deg 45deg,
-      var(--pow) 45deg 67deg, transparent 67deg 90deg,
-      var(--pow) 90deg 112deg, transparent 112deg 135deg,
-      var(--pow) 135deg 157deg, transparent 157deg 180deg,
-      var(--pow) 180deg 202deg, transparent 202deg 225deg,
-      var(--pow) 225deg 247deg, transparent 247deg 270deg,
-      var(--pow) 270deg 292deg, transparent 292deg 315deg,
-      var(--pow) 315deg 337deg, transparent 337deg 360deg);
-  -webkit-mask:
-    radial-gradient(circle at center, var(--ink) 0 55%, transparent 55%),
-    conic-gradient(from 0deg, var(--ink) 0 100%);
-  transform: rotate(-10deg);
-  z-index: 3;
-  filter: drop-shadow(3px 3px 0 var(--ink));
+  inset: 0;
+  overflow: hidden;
+}
+.ba-slider__layer--after {
+  /* clip-path is set inline from the handle position; transition smooths
+     keyboard nudges without lagging the live drag (which already updates
+     every pointermove). */
+  transition: clip-path 80ms linear;
+}
+.ba-slider__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  display: block;
   pointer-events: none;
 }
-/* fallback: the mask trick is finicky — use a simpler solid starburst via svg */
+.ba-slider__stamp {
+  position: absolute;
+  top: 14px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--paper);
+}
+.ba-slider__stamp--before { left: 14px; }
+.ba-slider__stamp--after  { right: 14px; background: var(--flame); color: var(--ink); }
+
+.ba-slider__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  transform: translateX(-50%);
+  z-index: 3;
+  outline: none;
+}
+.ba-slider__handle__rule {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--paper);
+}
+.ba-slider__handle__knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 var(--ink);
+  cursor: ew-resize;
+  transition: transform 140ms var(--ease-out-5), box-shadow 140ms var(--ease-out-5);
+}
+.ba-slider__handle:hover  .ba-slider__handle__knob,
+.ba-slider__handle:focus-visible .ba-slider__handle__knob {
+  transform: translate(-50%, -50%) scale(1.06);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.ba-slider__handle:focus-visible .ba-slider__handle__knob {
+  outline: 2px solid var(--flame);
+  outline-offset: 3px;
+}
+/* starburst stamp shared by the slider hero and any future delta-style badges */
 .starburst {
   position: absolute;
   bottom: -22px;
@@ -1485,9 +1508,7 @@
   .scan__aside             { position: static; }
   .report__header          { grid-template-columns: 1fr; align-items: start; }
   .report__body            { grid-template-columns: 1fr; }
-  .diff--hero              { grid-template-columns: 1fr; }
-  .diff--hero .diff__side + .diff__side { border-left: 0; border-top: 2px solid var(--ink); }
-  .diff--hero .diff__side  { aspect-ratio: 4 / 3; }
+  .ba-slider               { aspect-ratio: 4 / 3; }
 }
 
 @media (max-width: 700px) {
