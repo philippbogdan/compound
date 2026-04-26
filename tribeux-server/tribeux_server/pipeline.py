@@ -373,14 +373,23 @@ async def run_pipeline(
             # If at least one patch landed, re-render the patched site
             # to a 10s mp4 so the Report can play back the v2 alongside
             # the original. The combined patch_script applies every
-            # accepted patch in one Playwright session.
+            # accepted patch in one Playwright session — including
+            # prior-iteration edits stacked from `parent_job_id` so the
+            # v2 video reflects the full cumulative redesign, not just
+            # this pass.
             landed = [ap.proposal for ap in applied if ap.applied]
             if use_real_render and landed:
-                patch_script = _build_patch_script(landed)
+                prior_script = build_patch_script(prior_history)
+                current_script = _build_patch_script(landed)
+                v2_patch_script = "\n".join(s for s in (prior_script, current_script) if s)
                 try:
-                    log("compose", f"re-rendering patched page · {len(landed)} patch(es)")
+                    log(
+                        "compose",
+                        f"re-rendering patched page · {len(prior_history)} prior + "
+                        f"{len(landed)} new patch(es)",
+                    )
                     rerender = await render.render_url(
-                        url, duration=10, patch_script=patch_script
+                        url, duration=10, patch_script=v2_patch_script
                     )
                     video_v2_path = rerender["video_path"]
                     full_v2 = rerender["full_page_png"] or full_v2
