@@ -22,6 +22,10 @@ uv venv && source .venv/bin/activate
 uv pip install -e . -e ../tribeux-domtree
 playwright install chromium  # only needed if you set use_real_render=true
 
+# Optional — copy the example env, fill in keys, then source it before uvicorn:
+cp .env.example .env       # edit .env, then:
+set -a; source .env; set +a
+
 uvicorn tribeux_server.main:app --reload --port 8000
 ```
 
@@ -30,11 +34,17 @@ so just `npm run dev` in `tribeux/app` and open the URL it prints.
 
 ## Modes
 
+See `.env.example` for the full list. Summary:
+
 | Env var               | Default | Effect                                                                 |
 |-----------------------|---------|------------------------------------------------------------------------|
 | `MOCK_CLAUDE`         | `1`     | Use the deterministic mock analyst. Set `0` (and provide a key) to call Claude. |
 | `ANTHROPIC_API_KEY`   | unset   | Required when `MOCK_CLAUDE=0`. Standard Anthropic SDK env var.         |
 | `ANTHROPIC_MODEL`     | `claude-3-5-sonnet-latest` | Override the analyst model. |
+
+`.env` is git-ignored. Never commit a real `ANTHROPIC_API_KEY` — treat any key
+shared in chat or in a public diff as compromised and rotate it immediately at
+https://console.anthropic.com/settings/keys.
 
 The request body's `use_real_render` flag controls whether the server
 actually navigates Playwright at all. When `false` (default), a sample
