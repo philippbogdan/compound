@@ -99,6 +99,7 @@ class JobStore:
             status = job.status if job else None
             result = job.result if job else None
             error = job.error if job else None
+            video_url = job.video_url if job else None
 
         # Replay buffered state in chronological-ish order.
         for cp in checkpoints:
@@ -111,7 +112,6 @@ class JobStore:
             q.put_nowait(("status", {"status": status}))
         # Replay video URL ahead of result so reconnects (e.g. Report
         # deep-links) can render the scrolling capture immediately.
-        video_url = job.video_url if job else None
         if video_url:
             q.put_nowait(("video", {"video_url": video_url}))
         if status == "done" and result is not None:
