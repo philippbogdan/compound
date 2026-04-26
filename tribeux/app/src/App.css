@@ -1668,9 +1668,11 @@
   z-index: 3;
   pointer-events: none;
 }
+/* Animate `top` so the percentage resolves against the canvas height
+   (translateY% would resolve against the line's own 2px height). */
 @keyframes handoff-scan {
-  0%   { transform: translateY(0); }
-  100% { transform: translateY(calc(100% + 12px)); }
+  0%   { top: -2px; }
+  100% { top: calc(100% + 12px); }
 }
 
 /* Halftone dot wash that intensifies as the scanline progresses. */
