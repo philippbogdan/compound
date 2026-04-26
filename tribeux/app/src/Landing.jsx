@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import UrlPill from './UrlPill'
+import ScanHandoff from './ScanHandoff'
 import { PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
 
 const BENCHMARK_SITES = [
@@ -36,23 +37,31 @@ function Starburst({ label = 'NEW', className = '' }) {
 
 export default function Landing() {
   const [url, setUrl] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [target, setTarget] = useState('')
   const nav = useNavigate()
 
   const go = v => {
-    const target = (v || url).trim()
-    if (!target) return
-    nav(`/demo?url=${encodeURIComponent(target)}`)
+    const t = (v || url).trim()
+    if (!t || scanning) return
+    setTarget(t)
+    setScanning(true)
   }
 
+  const finish = useCallback(() => {
+    nav(`/demo?url=${encodeURIComponent(target)}`)
+  }, [nav, target])
+
   return (
-    <motion.section
-      className="landing"
-      variants={PAGE_VARIANTS}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={PAGE_TRANSITION}
-    >
+    <>
+      <motion.section
+        className={`landing${scanning ? ' is-scanning' : ''}`}
+        variants={PAGE_VARIANTS}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={PAGE_TRANSITION}
+      >
       <div className="landing__grid">
         <div>
           <div className="landing__tape">
@@ -74,7 +83,13 @@ export default function Landing() {
 
           <div className="landing__pill-wrap">
             <span className="landing__pill-number">URL ▸</span>
-            <UrlPill value={url} onChange={setUrl} onSubmit={go} variant="inline" />
+            <UrlPill
+              value={url}
+              onChange={setUrl}
+              onSubmit={go}
+              disabled={scanning}
+              variant="inline"
+            />
           </div>
 
           <p className="landing__fig-caption">
@@ -137,6 +152,14 @@ export default function Landing() {
           ))}
         </div>
       </div>
-    </motion.section>
+      </motion.section>
+      {/* Sibling of motion.section so position:fixed isn't trapped by the
+          page-transition transform on the section. */}
+      <AnimatePresence>
+        {scanning && (
+          <ScanHandoff key="scan-handoff" url={target} onComplete={finish} />
+        )}
+      </AnimatePresence>
+    </>
   )
 }
