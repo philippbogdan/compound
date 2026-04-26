@@ -169,6 +169,44 @@ _SECTION_PRIORITY: dict[str, tuple[str, ...]] = {
 }
 
 
+_VISUAL_STYLES: dict[tuple, str] = {
+    # axis, severity -> inline CSS that produces an obviously different element.
+    ("attention", "mild"):     "font-weight:700; letter-spacing:-0.02em; color:#0f172a;",
+    ("attention", "moderate"): "font-size:1.35em; font-weight:800; line-height:1.05; letter-spacing:-0.03em; color:#0f172a;",
+    ("attention", "severe"):   "font-size:1.6em; font-weight:900; line-height:1.0; letter-spacing:-0.035em; color:#0f172a; background:linear-gradient(180deg,transparent 60%,#fde68a 60%); display:inline-block; padding:0 6px;",
+
+    ("self_relevance", "mild"):     "color:#111827; font-weight:500;",
+    ("self_relevance", "moderate"): "font-size:1.15em; font-weight:600; color:#111827; max-width:30ch;",
+    ("self_relevance", "severe"):   "font-size:1.25em; font-weight:600; color:#111827; max-width:28ch; line-height:1.25;",
+
+    ("reward", "mild"):     "background:#0f766e; color:#ffffff; padding:10px 18px; border-radius:8px; font-weight:600; border:none;",
+    ("reward", "moderate"): "background:#0f766e; color:#ffffff; padding:14px 26px; border-radius:10px; font-weight:700; font-size:1.05em; box-shadow:0 2px 8px rgba(15,118,110,0.25); border:none;",
+    ("reward", "severe"):   "background:linear-gradient(180deg,#10b981,#047857); color:#ffffff; padding:16px 32px; border-radius:12px; font-weight:700; font-size:1.15em; letter-spacing:-0.01em; box-shadow:0 4px 16px rgba(16,185,129,0.35); border:none;",
+
+    ("disgust", "mild"):     "background:#f4f4f5; color:#18181b; font-weight:500; padding:10px 18px; border-radius:8px; border:1px solid #e4e4e7;",
+    ("disgust", "moderate"): "background:#ffffff; color:#18181b; font-weight:500; padding:12px 22px; border-radius:10px; border:1px solid #d4d4d8; letter-spacing:0;",
+    ("disgust", "severe"):   "background:#ffffff; color:#18181b; font-weight:500; padding:14px 26px; border-radius:10px; border:1px solid #d4d4d8; letter-spacing:0; text-transform:none;",
+}
+
+
+def _inject_inline_style(head: str, css: str) -> str:
+    """Replace-or-add `style="..."` inside an opening tag fragment (no trailing `>`)."""
+    if not css:
+        return head
+    import re as _re
+    m = _re.search(r'\bstyle\s*=\s*"([^"]*)"', head)
+    if m:
+        existing = m.group(1).rstrip("; ")
+        merged = f'{existing}; {css}'.strip("; ")
+        return head[: m.start()] + f'style="{merged}"' + head[m.end() :]
+    # Insert after the tag name.
+    m2 = _re.match(r"^<\s*([A-Za-z][A-Za-z0-9]*)", head)
+    if not m2:
+        return head
+    end = m2.end()
+    return head[:end] + f' style="{css}"' + head[end:]
+
+
 def _build_patch(
     *,
     target_axis: Axis,
@@ -217,45 +255,48 @@ def _build_patch(
     before = chosen.get("outer_html") or ""
     text = (chosen.get("text") or "").strip() or "Read more"
 
-    # Rewrites calibrated to severity bucket — mild is a nudge, severe rewrites copy.
+    # Copy rewrites scaled to severity.
     if severity == "mild":
         rewrites = {
-            "attention":      (text, "Keep copy, tighten one style token to regain fronto-parietal pull."),
+            "attention":      (text, "Keep copy, lift typography for a visible attention anchor."),
             "self_relevance": (text.replace("Our", "Your").replace("our", "your") or text,
-                               "Swap 'our' → 'your' — tiny precuneus cue."),
-            "reward":         (text, "Preserve wording; slight CTA contrast lift only."),
-            "disgust":        (text.replace("!!", "!").rstrip("!") + "" if text.endswith("!!") else text.rstrip("!"),
-                               "Remove extra exclamation — soften insula activation."),
+                               "Swap 'our' → 'your' and bump readability — precuneus cue."),
+            "reward":         (text, "Preserve wording; promote the CTA visually."),
+            "disgust":        (text.replace("!!", "!").rstrip("!") if text.endswith("!") else text,
+                               "Remove exclamation; neutralize aggressive tone."),
         }
     elif severity == "moderate":
         rewrites = {
-            "attention":      ("Stop scrolling.", "Restructured to pull fronto-parietal attention."),
+            "attention":      ("Stop scrolling.", "Restructured headline to pull fronto-parietal attention."),
             "self_relevance": ("Yours, on day one.", "Addresses the reader directly → recruits precuneus."),
             "reward":         (f"{text.split('.')[0].strip() or 'A clearer path'} — in one tap.",
-                               "Adds a concrete reward cue for ventral-striatum prediction."),
+                               "Added a concrete reward cue for ventral-striatum prediction."),
             "disgust":        (text.replace("!", "").strip() or "Get started",
-                               "Removes exclamation / aggressive punctuation."),
+                               "Stripped exclamation; softened insula activation."),
         }
     else:  # severe
         rewrites = {
-            "attention":      ("One line. Look here.", "Severe attention drop → wholesale copy rewrite."),
+            "attention":      ("One line. Look here.", "Severe attention drop → wholesale typography rewrite."),
             "self_relevance": ("Built for the way you already work.", "Severe self-relevance gap → reader-first rewrite."),
-            "reward":         ("Save ~4 hrs/week starting today.", "Severe reward gap → concrete payoff rewrite."),
+            "reward":         ("Save ~4 hrs/week starting today.", "Severe reward gap → concrete payoff + amplified CTA."),
             "disgust":        ("Get started", "Severe disgust → strip manipulative cues, restore plain copy."),
         }
     new_text, why = rewrites[target_axis]
 
+    # Build after_html: inject inline style for visible change + new text.
+    css = _VISUAL_STYLES.get((target_axis, severity), "")
     if before and ">" in before and "</" in before:
         head, _, rest = before.partition(">")
         _, _, tail = rest.rpartition("<")
-        after = f"{head}>{new_text}<{tail}"
+        styled_head = _inject_inline_style(head, css)
+        after = f"{styled_head}>{new_text}<{tail}"
     else:
-        after = f'<div data-tribeux-patch="{target_axis}">{new_text}</div>'
+        after = f'<div data-tribeux-patch="{target_axis}" style="{css}">{new_text}</div>'
 
     expected = {
-        "mild":     0.25 if target_axis != "disgust" else -0.30,
-        "moderate": 0.45 if target_axis != "disgust" else -0.55,
-        "severe":   0.70 if target_axis != "disgust" else -0.85,
+        "mild":     0.30 if target_axis != "disgust" else -0.30,
+        "moderate": 0.55 if target_axis != "disgust" else -0.55,
+        "severe":   0.90 if target_axis != "disgust" else -0.95,
     }[severity]
 
     return PatchProposal(
@@ -395,58 +436,104 @@ def _mock_history_note(history: list[HistoryEntry], current_axis: Axis) -> str:
 # ---------------------------------------------------------------------------
 
 
-_PROMPT = """You are TribeUX, an iterative UX optimizer running pass N of up to 8 on a live
-landing page. After each pass the brain re-scores the page so you can see
-whether your prior edits moved the needle.
+_PROMPT = """You are TribeUX, an iterative UX optimizer running pass N of up to 8 on a
+live landing page. After each pass the brain re-scores the patched page so
+you can see whether your last edit actually moved the needle.
+
+Your edits MUST make a visible, tangible change a user would notice within
+one second of looking at the page. Copy-only tweaks that don't change how
+the page *looks* are failures. Think like a designer shipping a small but
+real redesign every pass — not a copywriter.
 
 # Inputs
 
-- headline_cohort: per-axis {cohort_z, percentile}.
-  Axes: attention up, self_relevance up, reward up, disgust down (higher = worse).
-  |z| bucketing: <0.5 normal | 0.5-1.0 mild | 1.0-2.0 moderate | >=2.0 severe.
-- timeline[]: per-second {t, scroll_y, scores_zscored, visible_unit_ids}. Units
-  listed at second t were in the viewport when the brain was reacting. TRIBE
-  has already compensated for hemodynamic lag.
-- worst_moments[]: the seconds most misaligned per axis (use these to pick a unit).
-- units[]: DOM inventory - id, section, selector, text, outer_html,
-  computed_style, importance.
-- history[]: your prior iterations, each with the edits and resulting axis
-  deltas. USE THIS. If disgust moved +1.8 -> +1.2, the direction is working;
-  continue. If it moved the wrong way, reverse.
-- iteration_index, past_edit_unit_ids: never edit a unit already touched.
+- headline_cohort: per-axis {cohort_z, percentile}. Axes:
+    attention (higher = more engaged),
+    self_relevance (higher = feels personal),
+    reward (higher = anticipated value),
+    disgust (lower = less friction; high = worse).
+  Severity buckets by |z|: <0.5 normal | 0.5-1.0 mild | 1.0-2.0 moderate | >=2.0 severe.
+- timeline[]: per-second {t, scroll_y, scores, visible_unit_ids}. The units
+  listed at second t were in the viewport when the brain reacted. TRIBE has
+  already compensated for hemodynamic lag, so trust the t.
+- worst_moments[]: per-axis worst seconds — start diagnosis here.
+- units[]: DOM inventory — id, section, selector, text, outer_html,
+  computed_style, importance. Read computed_style to match the existing
+  palette/font/spacing so your edit integrates instead of clashing.
+- history[]: your prior passes with measured cohort_z_before vs after on
+  the targeted axis. Continue the direction when it worked; pivot angle
+  or axis when it didn't.
+- past_edit_unit_ids: never edit one of these again.
+
+# How patches are applied (exploit this)
+
+Each edit replaces an element via `el.outerHTML = after_html`. That means:
+
+1. **Inline `style="..."` in after_html overrides site CSS by specificity.**
+   Use it liberally — this is your most reliable lever for visible change.
+2. You may replace the tag's inner structure (children, nested spans,
+   SVG) freely so long as you preserve semantic role + attributes.
+3. You CANNOT rely on adding external stylesheets or <style> tags.
+
+Every edit should change at least TWO visible properties together
+(color + size, padding + weight, background + border-radius, etc.) so the
+difference is obvious at a glance.
+
+# Design toolbox per axis
+
+- disgust → soften aggressive reds/oranges toward neutral or brand-primary;
+  strip "!", "LIMITED", "ONLY TODAY" shouting; drop font-weight below 700;
+  add generous padding; decrease font-size if it's screaming. Reduce
+  competing visual noise around the offender.
+- attention → enlarge hero/heading (+20-40%), bolder weight, tighter
+  line-height; add one accent element (underline, pill, colored dot) on
+  the key phrase; flatten competing on-screen elements.
+- self_relevance → swap "our/we" for "your/you"; add a second-person
+  subtitle; reference a concrete role or use case; humanize with an
+  avatar/illustration if appropriate.
+- reward → make the value proposition concrete (a time savings, a dollar
+  number, a specific outcome); raise CTA visual weight (larger padding,
+  higher contrast, breathing room); add a micro-benefit line under CTA.
 
 # Change magnitude MUST match severity
 
-| Worst |z|  | Allowed change
-|  <0.5      | Return done=true, no edits.
-|  0.5-1.0   | Tiny: one color, one phrase, one style token.
-|  1.0-2.0   | Restructure ONE element: CTA copy, contrast, swap image.
-|  >=2.0     | Rewrite ONE element wholesale (NOT a whole section).
+| Worst |z| | Edit count | Per-edit scope                                            |
+| <0.5      | 0 — set done=true and return empty edits                                |
+| 0.5-1.0   | 1          | Restyle one element: combine color + weight + spacing changes so the element clearly looks different. |
+| 1.0-2.0   | 2          | Restyle + rewrite one key element AND adjust an adjacent one (e.g., hero title + CTA, headline + subhead). |
+| >=2.0     | 2-3        | Replace 1-2 elements wholesale with new HTML + inline styles, plus one supporting element adjustment. |
 
-# Hard rules
+Target expected_delta_z proportional to severity:
+mild ±0.2-0.4 · moderate ±0.4-0.7 · severe ±0.7-1.2.
+Direction: positive on attention/self_relevance/reward, negative on disgust.
 
-- Max 2 edits per pass (1 preferred). Each edit = ONE unit.
-- Never redesign or delete a whole section.
+# Hard rules — non-negotiable
+
+- Never redesign or delete a whole section (nav/hero/features/cta/footer).
 - Never modify prices, legal text, brand names, or required disclosures.
-- Never remove aria-*, alt=, role=, or change tag semantics (button stays button).
+- Never strip aria-*, alt, role, or change a tag's semantic role
+  (button stays button; a stays a). You MAY change style=, class=, inner
+  text, nested elements, and inline SVG.
+- Preserve id, href, type, name, data-* attributes that scripts may rely on.
 - Never edit a unit listed in past_edit_unit_ids.
-- Pick the unit whose visible_unit_ids appearance coincides with the worst
-  score seconds. Prefer section matching the construct:
-    disgust -> cta/hero | attention -> hero/nav |
-    self_relevance -> hero/features | reward -> cta/hero.
+- Pick the unit whose visible_unit_ids appearance most coincides with the
+  worst score seconds. Prefer section matching construct:
+    disgust → cta/hero · attention → hero/nav ·
+    self_relevance → hero/features · reward → cta/hero.
 
-# Output - strict JSON, no prose, no code fences
+# Output — strict JSON, no prose, no code fences
 
 {
   "iteration": <int>,
-  "diagnosis": "<1-2 sentences, reference specific t and unit_id>",
-  "history_note": "<1 sentence: did my last pass help? continue or pivot>",
+  "diagnosis": "<1-2 sentences: what the brain is reacting to, at which t, which unit_id>",
+  "history_note": "<1 sentence: did last pass move the targeted axis? continue or pivot>",
   "edits": [
     {"unit_id": "...", "selector": "...", "section": "...",
      "target_axis": "attention|self_relevance|reward|disgust",
      "severity_bucket": "mild|moderate|severe",
-     "before_html": "...", "after_html": "...",
-     "rationale": "<why THIS edit fixes THIS spike>",
+     "before_html": "<original outer_html>",
+     "after_html": "<new html WITH inline style= overriding palette/layout>",
+     "rationale": "<why THIS specific visual change fixes THIS specific spike>",
      "expected_delta_z": 0.0}
   ],
   "done": false
