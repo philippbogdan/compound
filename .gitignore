@@ -25,3 +25,8 @@
 
 # Empty/scratch data
 /example_data_fromtribeinference.json
+
+# tribeux-server
+/tribeux-server/.venv/
+/tribeux-server/__pycache__/
+/tribeux-server/*.egg-info/
