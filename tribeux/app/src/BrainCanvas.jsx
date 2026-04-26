@@ -194,8 +194,12 @@ function writeColors(dirs, colors, parcels, count, brightness) {
     // a contiguous Gaussian becomes a speckled cluster.
     const n = hashNoise(nx, ny, nz)
     act *= 0.82 + 0.36 * n
-    act = Math.min(1, act) * brightness
+    act = Math.min(1, act)
 
+    // Gate on raw activation, then apply brightness as a post-process dim
+    // of the final mix. Decouples threshold-gating from overall dimming so
+    // brightness < 1 doesn't shift the effective threshold up (which would
+    // make many parcels invisible against the high ACT_THRESHOLD).
     if (act < ACT_THRESHOLD) {
       colors[i*3  ] = BASE_COLOR[0]
       colors[i*3+1] = BASE_COLOR[1]
@@ -204,7 +208,7 @@ function writeColors(dirs, colors, parcels, count, brightness) {
       const t  = Math.min(1, (act - ACT_THRESHOLD) / (1 - ACT_THRESHOLD))
       const tt = Math.pow(t, 1.25)
       const idx = Math.min(255, (tt*255)|0)
-      const mix = Math.min(1, 0.06 + 0.78*tt)
+      const mix = Math.min(1, 0.06 + 0.78*tt) * brightness
       colors[i*3  ] = BASE_COLOR[0]*(1-mix) + HOT_LUT[idx*3  ]*mix
       colors[i*3+1] = BASE_COLOR[1]*(1-mix) + HOT_LUT[idx*3+1]*mix
       colors[i*3+2] = BASE_COLOR[2]*(1-mix) + HOT_LUT[idx*3+2]*mix
