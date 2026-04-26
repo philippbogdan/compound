@@ -207,6 +207,34 @@ def _inject_inline_style(head: str, css: str) -> str:
     return head[:end] + f' style="{css}"' + head[end:]
 
 
+def _above_fold_unit_ids(
+    timeline: Optional[TimelineBlock],
+    units: list[dict[str, Any]],
+    viewport_h: int = 1024,
+) -> set[str]:
+    """Return the set of unit IDs visible in the initial viewport (t=0).
+
+    Prefer the timeline's t=0 snapshot; fall back to a bbox.y < viewport_h
+    heuristic when the timeline isn't built (e.g. sample mode).
+    """
+    if timeline and timeline.timeline:
+        return set(timeline.timeline[0].visible_unit_ids or [])
+    out: set[str] = set()
+    for u in units:
+        uid = u.get("id")
+        if not uid:
+            continue
+        bb = u.get("bbox") or {}
+        try:
+            y = float(bb.get("y", 0))
+            h = float(bb.get("h", 0))
+        except (TypeError, ValueError):
+            continue
+        if y + h > 0 and y < viewport_h:
+            out.add(uid)
+    return out
+
+
 def _build_patch(
     *,
     target_axis: Axis,
@@ -214,9 +242,15 @@ def _build_patch(
     units: list[dict[str, Any]],
     rationale: str,
     exclude_ids: set[str],
+    allowed_ids: Optional[set[str]] = None,
 ) -> PatchProposal | None:
     if not units:
         return None
+    # Above-the-fold filter: only edit units the user sees on arrival.
+    if allowed_ids is not None:
+        units = [u for u in units if u.get("id") in allowed_ids]
+        if not units:
+            return None
     section_priority = _SECTION_PRIORITY[target_axis]
 
     def score(u: dict[str, Any], target_section: str) -> tuple[int, float]:
@@ -382,12 +416,14 @@ def _mock(
     # One patch for the primary worst axis, calibrated to severity.
     patches: list[PatchProposal] = []
     rationale = f"Worst axis vs cohort = {axis} at |z|={worst_abs_z:.2f}σ ({severity})."
+    allowed = _above_fold_unit_ids(timeline, units)
     p = _build_patch(
         target_axis=axis,
         severity=severity,
         units=units,
         rationale=rationale,
         exclude_ids=exclude,
+        allowed_ids=allowed,
     )
     if p is not None:
         patches.append(p)
@@ -509,6 +545,12 @@ Direction: positive on attention/self_relevance/reward, negative on disgust.
 
 # Hard rules — non-negotiable
 
+- ONLY edit units that appear in `timeline[0].visible_unit_ids` — i.e. the
+  FIRST GLIMPSE of the page (above the fold, viewport_h = 1024px). Elements
+  the user would only see after scrolling don't form the first impression
+  the brain responds to. If worst_moments spikes are below the fold, still
+  pick an above-fold unit — you're editing what the user actually sees on
+  arrival.
 - Never redesign or delete a whole section (nav/hero/features/cta/footer).
 - Never modify prices, legal text, brand names, or required disclosures.
 - Never strip aria-*, alt, role, or change a tag's semantic role
@@ -632,11 +674,18 @@ def _live(
     data = _parse_json_object(text)
 
     # Map Claude's edits[] onto PatchProposal. Be forgiving: some keys may
-    # be absent; fall back to values from the matching unit.
+    # be absent; fall back to values from the matching unit. Drop any edit
+    # targeting a unit outside the initial viewport (hard rule in prompt,
+    # but belt-and-braces in case the model ignores it).
     unit_index = {u.get("id"): u for u in units}
+    above_fold = _above_fold_unit_ids(timeline, units)
     patches: list[PatchProposal] = []
     for e in data.get("edits", []):
         unit_id = e.get("unit_id") or ""
+        if above_fold and unit_id not in above_fold:
+            # Skip below-the-fold edits silently — a dropped patch is
+            # better than editing something the user never sees.
+            continue
         base = unit_index.get(unit_id, {})
         selector = e.get("selector") or base.get("selector") or "body"
         section = e.get("section") or base.get("section")

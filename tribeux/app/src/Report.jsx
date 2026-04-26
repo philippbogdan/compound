@@ -47,6 +47,16 @@ function flatBenchPath(n = 60) {
   return pts.map((p, i) => (i === 0 ? `M ${p[0]} ${p[1]}` : `L ${p[0]} ${p[1]}`)).join(' ')
 }
 
+function qualitativeLabel(axis, z) {
+  // Direction: disgust is inverted (higher = worse); others higher = better.
+  const effective = axis === 'disgust' ? -z : z
+  if (effective >= 1.5) return { text: 'VERY GOOD', color: '#0f766e' }
+  if (effective >= 0.5) return { text: 'GOOD',      color: '#16a34a' }
+  if (effective > -0.5) return { text: 'OK',        color: '#6b7280' }
+  if (effective > -1.5) return { text: 'BAD',       color: '#c2410c' }
+  return                       { text: 'VERY BAD',  color: '#b91c1c' }
+}
+
 function EmotionRow({ axis, cohort, series, idx, expectedDelta }) {
   const meta = AXIS_META[axis]
   const friction = FRICTION_AXES.has(axis)
@@ -54,6 +64,7 @@ function EmotionRow({ axis, cohort, series, idx, expectedDelta }) {
   const sign = z >= 0 ? '+' : '−'
   const val = Math.abs(z).toFixed(2)
   const zClass = Math.abs(z) >= 1 ? 'is-high' : 'is-good'
+  const quali = qualitativeLabel(axis, z)
 
   const benchPath = useMemo(() => flatBenchPath(60), [])
   const livePath = useMemo(() => curveFromSeries(series), [series])
@@ -88,8 +99,19 @@ function EmotionRow({ axis, cohort, series, idx, expectedDelta }) {
           />
         </svg>
       </div>
-      <div className={'emotion-row__z ' + zClass}>
-        {sign}{val}
+      <div className={'emotion-row__z ' + zClass}
+           style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.1 }}>
+        <span>{sign}{val}</span>
+        <span style={{
+          fontFamily: 'var(--mono)',
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          marginTop: 2,
+          color: quali.color,
+        }}>
+          {quali.text}
+        </span>
       </div>
     </div>
   )
@@ -369,7 +391,17 @@ export default function Report() {
               {isDone && ' · CONVERGED'}
             </strong>
           </div>
-          <h1 className="report__title">
+          <h1
+            className="report__title"
+            style={{
+              fontSize: 'clamp(22px, 3.1vw, 38px)',
+              lineHeight: 1.12,
+              letterSpacing: '-0.025em',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '28ch',
+            }}
+          >
             {findings.summary.split('.').slice(0, 1).join('.') || 'Findings'}
             {findings.mock && (
               <span className="alt" style={{ color: 'var(--ink-mute)', marginLeft: 8, fontWeight: 400 }}>
