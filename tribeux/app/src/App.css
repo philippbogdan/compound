@@ -672,6 +672,40 @@
   font-size: 11px;
   font-weight: 700;
 }
+.scan__log {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.scan__log::after { display: none; } /* full transcript visible — no fade veil */
+.scan__log .log-line--prompt span:nth-child(2) { color: var(--ink-mute); }
+.scan__log .log-line--prompt span:last-child { color: var(--ink-mute); font-style: italic; }
+.scan__log .log-line--cp {
+  border-top: 1px dashed var(--ink-whisper);
+  padding-top: 4px;
+  margin-top: 4px;
+}
+.scan__log .log-line--cp span:nth-child(2) {
+  color: var(--ink);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.scan__log .log-line--cp.is-begin span:nth-child(2) { color: var(--flame); }
+.scan__log .log-line--cp.is-end   span:nth-child(2) { color: oklch(0.55 0.15 145); }
+.scan__log .log-line--cp.is-fail  span:nth-child(2) { color: var(--pulse); }
+.scan__log .log-line--cp span:last-child {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.scan__log .log-line--caret span:last-child .caret {
+  display: inline-block;
+  color: var(--flame);
+  animation: caret-blink 900ms steps(2, jump-none) infinite;
+}
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
 @keyframes log-fade {
   from { opacity: 0; transform: translateX(-4px); }
   to   { opacity: 1; transform: translateX(0); }

@@ -23,6 +23,32 @@ export async function getJob(jobId) {
   return res.json()
 }
 
+/**
+ * Subscribe to the SSE event stream for a job.
+ *
+ * `handlers` is a map of `{eventName: (payload) => void}`. Returns the
+ * underlying EventSource so the caller can `.close()` it.
+ *
+ * Emitted event names match the server: `log`, `progress`, `checkpoint`,
+ * `status`, `result`, `error`, `done`.
+ */
+export function subscribeJob(jobId, handlers = {}) {
+  const es = new EventSource(`${BASE}/jobs/${jobId}/events`)
+  const wrap = (_name, fn) => (e) => {
+    let payload
+    try {
+      payload = e.data ? JSON.parse(e.data) : null
+    } catch {
+      payload = e.data
+    }
+    fn(payload, e)
+  }
+  for (const [name, fn] of Object.entries(handlers)) {
+    es.addEventListener(name, wrap(name, fn))
+  }
+  return es
+}
+
 export async function ping() {
   try {
     const res = await fetch(`${BASE}/health`)

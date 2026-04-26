@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import BrainCanvas from './BrainCanvas'
@@ -210,20 +210,12 @@ export default function Demo() {
           </dl>
         </div>
 
-        <div className="scan__log" role="log" aria-live="polite">
-          {visibleLogs.map((line, i) => (
-            <div className="log-line" key={i} style={{ animationDelay: `${i * 40}ms` }}>
-              <span>{line.t}</span>
-              <span>{line.stage}</span>
-              <span>{line.message}</span>
-            </div>
-          ))}
-          {error && (
-            <div className="log-line" style={{ color: 'var(--pulse)' }}>
-              <span>ERR</span><span>client</span><span>{error}</span>
-            </div>
-          )}
-        </div>
+        <CliStream
+          logs={visibleLogs}
+          checkpoints={job?.checkpoints || []}
+          status={status}
+          error={error}
+        />
       </div>
 
       <aside className="scan__aside">
@@ -274,4 +266,112 @@ export default function Demo() {
       </aside>
     </motion.section>
   )
+}
+
+// ---------------------------------------------------------------------------
+// CliStream — live SSE-driven console.
+//
+// Merges `logs` and `checkpoints` arrays from the streamed job state into a
+// single chronological event list. Renders log lines and stage-checkpoint
+// markers with distinct affordances, auto-scrolls to the bottom as new
+// events arrive, and shows a blinking caret while the pipeline is running.
+// ---------------------------------------------------------------------------
+
+function fmtMs(ms) {
+  if (ms < 1) return ''
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(2)}s`
+}
+
+function CliStream({ logs, checkpoints, status, error }) {
+  // Merge the two streams into a single ordered list. Both arrive in
+  // the order the server emitted them, so we just round-robin by index
+  // weighted by the SSE arrival sequence: in practice a stage `begin`
+  // checkpoint always lands immediately before that stage's first log
+  // line. We render as a flat sequence preserving the relative order
+  // by using the stage index as a tie-breaker.
+  const stream = useMemo(() => {
+    const items = []
+    let li = 0, ci = 0
+    while (li < logs.length || ci < checkpoints.length) {
+      const ln = logs[li]
+      const cp = checkpoints[ci]
+      // Decide who goes next: a checkpoint goes before the first log
+      // line of its stage; otherwise interleave by stage transitions.
+      if (cp && (!ln || (cp.kind === 'begin' && stagePos(cp.stage) <= stagePos(ln.stage)))) {
+        items.push({ kind: 'checkpoint', data: cp })
+        ci++
+      } else if (cp && cp.kind !== 'begin' && (!ln || stagePos(cp.stage) < stagePos(ln.stage))) {
+        items.push({ kind: 'checkpoint', data: cp })
+        ci++
+      } else if (ln) {
+        items.push({ kind: 'log', data: ln })
+        li++
+      } else if (cp) {
+        items.push({ kind: 'checkpoint', data: cp })
+        ci++
+      }
+    }
+    return items
+  }, [logs, checkpoints])
+
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [stream.length])
+
+  const isRunning = status === 'running' || status === 'queued'
+
+  return (
+    <div className="scan__log" role="log" aria-live="polite" ref={ref}>
+      <div className="log-line log-line--prompt">
+        <span>--:--</span>
+        <span>boot</span>
+        <span>tribeux-server · POST /api/analyze · subscribed to SSE /api/jobs/&lt;id&gt;/events</span>
+      </div>
+      {stream.map((it, i) => {
+        if (it.kind === 'checkpoint') {
+          const cp = it.data
+          const cls =
+            'log-line log-line--cp ' +
+            (cp.kind === 'begin' ? 'is-begin' : cp.kind === 'fail' ? 'is-fail' : 'is-end')
+          const glyph = cp.kind === 'begin' ? '▸' : cp.kind === 'fail' ? '✗' : '✓'
+          const elapsed = cp.kind !== 'begin' ? `· ${fmtMs(cp.elapsed_ms)}` : ''
+          return (
+            <div className={cls} key={`cp-${i}`} style={{ animationDelay: `${i * 16}ms` }}>
+              <span>{cp.t}</span>
+              <span>{glyph} {cp.stage}</span>
+              <span>{cp.label} {elapsed}</span>
+            </div>
+          )
+        }
+        const line = it.data
+        return (
+          <div className="log-line" key={`log-${i}`} style={{ animationDelay: `${i * 16}ms` }}>
+            <span>{line.t}</span>
+            <span>{line.stage}</span>
+            <span>{line.message}</span>
+          </div>
+        )
+      })}
+      {isRunning && (
+        <div className="log-line log-line--caret">
+          <span>--:--</span>
+          <span>·</span>
+          <span><span className="caret">▮</span></span>
+        </div>
+      )}
+      {error && (
+        <div className="log-line" style={{ color: 'var(--pulse)' }}>
+          <span>ERR</span><span>client</span><span>{error}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function stagePos(stage) {
+  return STAGE_INDEX[stage] ?? 99
 }
