@@ -41,6 +41,8 @@ export default function Demo() {
   const [params] = useSearchParams()
   const nav = useNavigate()
   const urlFromQuery = params.get('url') || 'stripe.com'
+  const isStripe = /(^|[/.])stripe\.com(\/|$)/i.test(urlFromQuery)
+    || /^stripe(\.com)?$/i.test(urlFromQuery.trim())
   const existingJobId = params.get('job') || null
   // If we're handed a `job=<id>` (iteration continuation), subscribe to that
   // job's SSE stream; otherwise kick off a fresh analysis.
@@ -196,21 +198,34 @@ export default function Demo() {
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <AnimatePresence>
-                {stimulusFrame && (
-                  <motion.img
-                    key={`stimulus-${stimulusFrame.t}`}
-                    src={stimulusFrame.data_url}
-                    alt={`stimulus frame at t=${stimulusFrame.t}s`}
-                    className="scan__video-media"
-                    initial={{ opacity: 0, filter: 'blur(8px)' }}
-                    animate={{ opacity: 1, filter: 'blur(0px)' }}
-                    exit={{ opacity: 0, filter: 'blur(6px)' }}
-                    transition={{ duration: 0.34, ease: EASE_OUT_QUINT }}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              <>
+                {isStripe && (
+                  <video
+                    src="/stripe-scan.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="scan__video-media scan__video-media--bg"
+                    aria-hidden="true"
                   />
                 )}
-              </AnimatePresence>
+                <AnimatePresence>
+                  {stimulusFrame && (
+                    <motion.img
+                      key={`stimulus-${stimulusFrame.t}`}
+                      src={stimulusFrame.data_url}
+                      alt={`stimulus frame at t=${stimulusFrame.t}s`}
+                      className="scan__video-media"
+                      initial={{ opacity: 0, filter: 'blur(8px)' }}
+                      animate={{ opacity: 1, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, filter: 'blur(6px)' }}
+                      transition={{ duration: 0.34, ease: EASE_OUT_QUINT }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  )}
+                </AnimatePresence>
+              </>
             )}
             <span className="scan__video-frame__sweep" aria-hidden="true" />
             <span className="scan__video-frame__stamp">256 × 256</span>
@@ -291,7 +306,7 @@ export default function Demo() {
         <div className={'scan__aside__section' + (isComplete ? ' is-fading' : '')}>
           <h5>Live cortex · fsaverage5</h5>
           <div className="scan__brain">
-            <BrainCanvas width={268} height={268} autoRotate brightness={1.05} />
+            <BrainCanvas width={268} height={268} autoRotate brightness={0.85} />
           </div>
           <p className="scan__brain__caption">
             <strong>TRIBE v2 (stub) · plug-and-play</strong>
