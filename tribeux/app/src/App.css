@@ -632,6 +632,13 @@
   filter: saturate(1.05) contrast(1.02);
   will-change: opacity, filter;
 }
+/* Background variant — used as the base layer for known URLs (e.g. stripe.com)
+   so the canvas isn't empty during stages before `frames` arrives. The
+   data-driven stimulus frame and verdict overlay layer above it. */
+.scan__video-media--bg {
+  z-index: 0;
+  filter: saturate(0.92) contrast(1.02);
+}
 
 .scan__video-frame__stamp {
   position: absolute;

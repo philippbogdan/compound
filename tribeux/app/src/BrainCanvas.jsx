@@ -74,14 +74,18 @@ function buildParcels() {
         const v = new THREE.Vector3(x, y, z).normalize()
         parcels.push({
           region: L.name, side: side < 0 ? 'L' : 'R', pos: v,
-          radius:   0.28 + Math.random()*0.14,
+          // Tighter radius → smaller, more focal hotspots (was 0.28 + 0.14)
+          radius:   0.20 + Math.random()*0.10,
           state: 'quiet', phase: 0, intensity: 0,
-          peak:     0.75 + Math.random()*0.25,
-          rise:     1.2  + Math.random()*1.4,
+          // Lower peaks → less saturated, more realistic fMRI-style activation
+          // (was 0.75 + 0.25 → max 1.00; now 0.42 + 0.20 → max 0.62)
+          peak:     0.42 + Math.random()*0.20,
+          rise:     1.4  + Math.random()*1.4,
           hold:     0.5  + Math.random()*0.7,
-          fall:     2.0  + Math.random()*2.0,
-          cooldown: 7    + Math.random()*9,
-          timer:    Math.random() * 14,
+          fall:     2.4  + Math.random()*2.0,
+          // Longer cooldown → fewer parcels active simultaneously
+          cooldown: 10   + Math.random()*10,
+          timer:    Math.random() * 18,
         })
       }
     })
@@ -145,20 +149,24 @@ function writeColors(dirs, colors, parcels, count, brightness) {
       if (P.intensity < 0.015) continue
       const dot = nx*P.pos.x + ny*P.pos.y + nz*P.pos.z
       const d = 1 - dot
-      const falloff = Math.exp(-(d*d) / (P.radius*P.radius*0.18))
+      // Steeper falloff (0.18 → 0.10) → tighter halos, more focal
+      const falloff = Math.exp(-(d*d) / (P.radius*P.radius*0.10))
       act += P.intensity * falloff
     }
     act = Math.min(1, act) * brightness
 
-    if (act < 0.14) {
+    // Higher activation threshold (0.14 → 0.22) → more cortex stays at base
+    // color, only true peaks light up. Softer mix coefficient (1.05 → 0.78)
+    // → hotspots blend with the base instead of fully replacing it.
+    if (act < 0.22) {
       colors[i*3  ] = BASE_COLOR[0]
       colors[i*3+1] = BASE_COLOR[1]
       colors[i*3+2] = BASE_COLOR[2]
     } else {
-      const t  = Math.min(1, (act - 0.14) / 0.86)
-      const tt = Math.pow(t, 1.1)
+      const t  = Math.min(1, (act - 0.22) / 0.78)
+      const tt = Math.pow(t, 1.25)
       const idx = Math.min(255, (tt*255)|0)
-      const mix = Math.min(1, 0.08 + 1.05*tt)
+      const mix = Math.min(1, 0.06 + 0.78*tt)
       colors[i*3  ] = BASE_COLOR[0]*(1-mix) + HOT_LUT[idx*3  ]*mix
       colors[i*3+1] = BASE_COLOR[1]*(1-mix) + HOT_LUT[idx*3+1]*mix
       colors[i*3+2] = BASE_COLOR[2]*(1-mix) + HOT_LUT[idx*3+2]*mix
