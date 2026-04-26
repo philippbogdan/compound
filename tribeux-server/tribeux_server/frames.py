@@ -37,10 +37,11 @@ def _png_to_data_url(png_bytes: bytes) -> str:
 
 def _resize_to_square(png_bytes: bytes, size: int = _FRAME_SIZE) -> bytes:
     img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
-    # Crop a square strip from the top of the page (most relevant for hero).
+    # Crop a top-aligned square (the hero is what matters for landing pages).
     w, h = img.size
     side = min(w, h)
-    img = img.crop((0, 0, w, side))
+    left = max(0, (w - side) // 2)
+    img = img.crop((left, 0, left + side, side))
     img = img.resize((size, size), Image.LANCZOS)
     out = io.BytesIO()
     img.save(out, format="PNG", optimize=True)
