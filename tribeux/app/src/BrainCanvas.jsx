@@ -53,15 +53,23 @@ async function loadFsavg(url) {
   return { positions, indices, count: posAcc.count }
 }
 
+// Cap on simultaneously-active parcels. Real fMRI cluster maps show a small
+// number of focal blobs lit at once — never half the cortex. With a larger
+// parcel pool but a hard cap, we get visual variety (different clusters fire
+// over time) without ever lighting the whole brain at once.
+const MAX_ACTIVE_PARCELS = 3
+
 function buildParcels() {
   const parcels = []
+  // More candidate clusters → more visual variety. Combined with the active
+  // cap above, only a few are lit at any given time.
   const lobes = [
-    { name:'prefrontal', yawDeg:[50, 90],  pitchDeg:[5,  45], count:2 },
-    { name:'frontal',    yawDeg:[10, 50],  pitchDeg:[20, 60], count:2 },
-    { name:'motor',      yawDeg:[-5, 15],  pitchDeg:[35, 65], count:1 },
-    { name:'parietal',   yawDeg:[-55,-15], pitchDeg:[25, 65], count:2 },
+    { name:'prefrontal', yawDeg:[50, 90],  pitchDeg:[5,  45], count:3 },
+    { name:'frontal',    yawDeg:[10, 50],  pitchDeg:[20, 60], count:3 },
+    { name:'motor',      yawDeg:[-5, 15],  pitchDeg:[35, 65], count:2 },
+    { name:'parietal',   yawDeg:[-55,-15], pitchDeg:[25, 65], count:3 },
     { name:'occipital',  yawDeg:[-100,-65],pitchDeg:[-5, 30], count:2 },
-    { name:'temporal',   yawDeg:[-25, 45], pitchDeg:[-45,-5], count:2 },
+    { name:'temporal',   yawDeg:[-25, 45], pitchDeg:[-45,-5], count:3 },
   ]
   ;[-1, 1].forEach(side => {
     lobes.forEach(L => {
@@ -74,18 +82,18 @@ function buildParcels() {
         const v = new THREE.Vector3(x, y, z).normalize()
         parcels.push({
           region: L.name, side: side < 0 ? 'L' : 'R', pos: v,
-          // Tighter radius → smaller, more focal hotspots (was 0.28 + 0.14)
-          radius:   0.20 + Math.random()*0.10,
+          // Small focal cluster radius — fMRI cluster look, not heat halos.
+          radius:   0.07 + Math.random()*0.04,
           state: 'quiet', phase: 0, intensity: 0,
-          // Lower peaks → less saturated, more realistic fMRI-style activation
-          // (was 0.75 + 0.25 → max 1.00; now 0.42 + 0.20 → max 0.62)
-          peak:     0.42 + Math.random()*0.20,
+          // Peak intensity max ~0.55 — bright enough to read as "hot" against
+          // the high activation threshold without the saturated red-blob look.
+          peak:     0.40 + Math.random()*0.15,
           rise:     1.4  + Math.random()*1.4,
           hold:     0.5  + Math.random()*0.7,
           fall:     2.4  + Math.random()*2.0,
-          // Longer cooldown → fewer parcels active simultaneously
-          cooldown: 10   + Math.random()*10,
-          timer:    Math.random() * 18,
+          // Long cooldown so the same cluster doesn't fire repeatedly.
+          cooldown: 14   + Math.random()*14,
+          timer:    Math.random() * 22,
         })
       }
     })
@@ -97,10 +105,23 @@ const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
 const easeInCubic  = t => t * t * t
 
 function stepParcels(parcels, dt) {
+  // Count how many parcels are currently lit (building / peak / fading).
+  let active = 0
+  for (const p of parcels) if (p.state !== 'quiet') active++
+
   for (const p of parcels) {
     p.timer -= dt
     if (p.state === 'quiet') {
-      if (p.timer <= 0) { p.state = 'building'; p.phase = 0 }
+      // Hard cap on simultaneous activations. If we're at the cap, defer
+      // this parcel's ignition by a small jitter and re-check next tick.
+      if (p.timer <= 0) {
+        if (active >= MAX_ACTIVE_PARCELS) {
+          p.timer = 0.4 + Math.random()*0.6
+        } else {
+          p.state = 'building'; p.phase = 0
+          active++
+        }
+      }
     } else if (p.state === 'building') {
       p.phase += dt / p.rise
       if (p.phase >= 1) { p.phase = 0; p.state = 'peak'; p.intensity = p.peak }
@@ -140,6 +161,22 @@ function buildVertexDirs(positions, count) {
   return out
 }
 
+// Cheap deterministic per-vertex hash → granular speckle in the activation
+// field. Without this, falloff is a smooth Gaussian and clusters read as
+// solid blobs; with it, edges break up into individual hot vertices the way
+// real fMRI cluster maps do. Stable across frames (no flicker) because it's
+// a function of vertex direction, not time.
+function hashNoise(nx, ny, nz) {
+  // Sin-based hash. Cheap, no LUT, deterministic per vertex.
+  const s = Math.sin(nx*127.1 + ny*311.7 + nz*74.7) * 43758.5453
+  return s - Math.floor(s)
+}
+
+// Activation threshold. Higher → more cortex stays cool; only true cluster
+// peaks light up. Combined with small parcel radii + active cap, this is the
+// main lever for the focal-clusters look.
+const ACT_THRESHOLD = 0.40
+
 function writeColors(dirs, colors, parcels, count, brightness) {
   for (let i=0; i<count; i++) {
     const nx=dirs[i*3], ny=dirs[i*3+1], nz=dirs[i*3+2]
@@ -149,24 +186,29 @@ function writeColors(dirs, colors, parcels, count, brightness) {
       if (P.intensity < 0.015) continue
       const dot = nx*P.pos.x + ny*P.pos.y + nz*P.pos.z
       const d = 1 - dot
-      // Steeper falloff (0.18 → 0.10) → tighter halos, more focal
-      const falloff = Math.exp(-(d*d) / (P.radius*P.radius*0.10))
+      // Tight falloff for small focal clusters.
+      const falloff = Math.exp(-(d*d) / (P.radius*P.radius*0.12))
       act += P.intensity * falloff
     }
-    act = Math.min(1, act) * brightness
+    // Per-vertex granular noise: ±18% modulation on the activation field, so
+    // a contiguous Gaussian becomes a speckled cluster.
+    const n = hashNoise(nx, ny, nz)
+    act *= 0.82 + 0.36 * n
+    act = Math.min(1, act)
 
-    // Higher activation threshold (0.14 → 0.22) → more cortex stays at base
-    // color, only true peaks light up. Softer mix coefficient (1.05 → 0.78)
-    // → hotspots blend with the base instead of fully replacing it.
-    if (act < 0.22) {
+    // Gate on raw activation, then apply brightness as a post-process dim
+    // of the final mix. Decouples threshold-gating from overall dimming so
+    // brightness < 1 doesn't shift the effective threshold up (which would
+    // make many parcels invisible against the high ACT_THRESHOLD).
+    if (act < ACT_THRESHOLD) {
       colors[i*3  ] = BASE_COLOR[0]
       colors[i*3+1] = BASE_COLOR[1]
       colors[i*3+2] = BASE_COLOR[2]
     } else {
-      const t  = Math.min(1, (act - 0.22) / 0.78)
+      const t  = Math.min(1, (act - ACT_THRESHOLD) / (1 - ACT_THRESHOLD))
       const tt = Math.pow(t, 1.25)
       const idx = Math.min(255, (tt*255)|0)
-      const mix = Math.min(1, 0.06 + 0.78*tt)
+      const mix = Math.min(1, 0.06 + 0.78*tt) * brightness
       colors[i*3  ] = BASE_COLOR[0]*(1-mix) + HOT_LUT[idx*3  ]*mix
       colors[i*3+1] = BASE_COLOR[1]*(1-mix) + HOT_LUT[idx*3+1]*mix
       colors[i*3+2] = BASE_COLOR[2]*(1-mix) + HOT_LUT[idx*3+2]*mix
@@ -205,11 +247,13 @@ export default function BrainCanvas({
     renderer.physicallyCorrectLights = true
     mount.appendChild(renderer.domElement)
 
-    scene.add(new THREE.AmbientLight(0xffeedd, 0.38))
-    const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(3, 5, 5); scene.add(key)
-    const fill = new THREE.DirectionalLight(0xffd8b0, 0.55); fill.position.set(-3, -1, 2); scene.add(fill)
-    const rim = new THREE.DirectionalLight(0xc8e8ff, 0.30); rim.position.set(-2, 4, -5); scene.add(rim)
-    const top = new THREE.DirectionalLight(0xffffff, 0.60); top.position.set(0, 8, 1); scene.add(top)
+    // Lower-key lighting → matte tissue look instead of glossy plastic.
+    // Key dropped from 2.2 → 1.3, accents trimmed proportionally.
+    scene.add(new THREE.AmbientLight(0xffeedd, 0.42))
+    const key = new THREE.DirectionalLight(0xffffff, 1.3); key.position.set(3, 5, 5); scene.add(key)
+    const fill = new THREE.DirectionalLight(0xffd8b0, 0.40); fill.position.set(-3, -1, 2); scene.add(fill)
+    const rim = new THREE.DirectionalLight(0xc8e8ff, 0.22); rim.position.set(-2, 4, -5); scene.add(rim)
+    const top = new THREE.DirectionalLight(0xffffff, 0.42); top.position.set(0, 8, 1); scene.add(top)
 
     const group = new THREE.Group()
     groupRef.current = group
@@ -235,10 +279,13 @@ export default function BrainCanvas({
         geo.computeVertexNormals()
         geo.computeBoundingSphere()
 
+        // Matte cortical-tissue material. High roughness (0.92) kills the
+        // specular highlights that read as plastic; metalness near zero so
+        // there's no chrome glint either.
         mat = new THREE.MeshStandardMaterial({
           vertexColors: true,
-          roughness: 0.50,
-          metalness: 0.04,
+          roughness: 0.92,
+          metalness: 0.0,
           flatShading: false,
         })
         const mesh = new THREE.Mesh(geo, mat)
