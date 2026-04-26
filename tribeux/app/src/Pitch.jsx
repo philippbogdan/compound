@@ -484,58 +484,43 @@ function ArchArrow() {
 
 function ArchLoop() {
   return (
-    <svg
-      className="pitch__arch-loop"
-      viewBox="0 0 1000 120"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <marker
-          id="arch-arrow-end"
-          markerWidth="10"
-          markerHeight="10"
-          refX="6"
-          refY="5"
-          orient="auto"
-        >
-          <polygon points="0 0, 10 5, 0 10" fill="var(--flame)" />
-        </marker>
-      </defs>
-      <motion.path
-        d="M 870 8 Q 870 95 500 95 Q 360 95 360 18"
-        fill="none"
-        stroke="var(--flame)"
-        strokeWidth="2"
-        strokeDasharray="6 4"
-        markerEnd="url(#arch-arrow-end)"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1.4, delay: 0.6, ease: EASE_OUT_QUINT }}
-      />
-      {/* "optimised" label — sits in the U of the loop, with a paper-coloured
-          backing rect so the dashed arrow doesn't visually run through it. */}
-      <rect
-        x="455"
-        y="80"
-        width="90"
-        height="18"
-        fill="var(--paper)"
-        rx="2"
-      />
-      <text
-        x="500"
-        y="93"
-        fontFamily="var(--mono)"
-        fontSize="13"
-        fill="var(--flame-deep, oklch(0.55 0.22 35))"
-        letterSpacing="0"
-        textAnchor="middle"
-        fontWeight="600"
+    <div className="pitch__arch-loop-wrap" aria-hidden="true">
+      <svg
+        className="pitch__arch-loop"
+        viewBox="0 0 1000 120"
+        preserveAspectRatio="none"
       >
-        optimised
-      </text>
-    </svg>
+        <defs>
+          {/* userSpaceOnUse so the arrowhead doesn't scale with strokeWidth. */}
+          <marker
+            id="arch-arrow-end"
+            markerUnits="userSpaceOnUse"
+            markerWidth="14"
+            markerHeight="14"
+            refX="9"
+            refY="7"
+            orient="auto"
+          >
+            <polygon points="0 0, 14 7, 0 14" fill="var(--flame)" />
+          </marker>
+        </defs>
+        <motion.path
+          d="M 870 8 Q 870 95 500 95 Q 360 95 360 18"
+          fill="none"
+          stroke="var(--flame)"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray="9 6"
+          markerEnd="url(#arch-arrow-end)"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.4, delay: 0.6, ease: EASE_OUT_QUINT }}
+        />
+      </svg>
+      {/* HTML label so the type isn't horizontally distorted by the
+          SVG's preserveAspectRatio="none". Sits over the bottom of the U. */}
+      <span className="pitch__arch-loop-label">optimised</span>
+    </div>
   )
 }
 
