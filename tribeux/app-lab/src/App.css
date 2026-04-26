@@ -1,0 +1,143 @@
+.page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #E8E8E6;
+}
+
+/* Visible pill. Fast transition (200ms). Positioned absolutely-centered.
+   This is what the user sees as the "pill edge" — white background, rounded,
+   shadow, etc. It has no children; it's purely visual. */
+.pill-surface {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 46px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 8px 24px rgba(0, 0, 0, 0.04);
+  transition-property: width;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+/* Clipping mask. Slow transition (400ms) — this is what produces the lag.
+   As the user types, surface grows fast; clip grows slower. Because the clip
+   is narrower mid-transition, the text (which is anchored to the clip's left
+   edge) sits inside the surface's left edge, appearing to lag behind. */
+.pill-clip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 46px;
+  overflow: clip;
+  border-radius: 999px;
+  transition-property: width;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Input is always fixed-wide so its own content box never shrinks below the
+   text width — native horizontal scroll is never triggered and text is never
+   clipped or shifted by the input. The clip above defines what's visible.
+   Width must exceed MAX_WIDTH to prevent scrollbar on long URLs. */
+.url-input {
+  display: block;
+  width: 2000px;
+  height: 46px;
+  padding: 0 22px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #1A1A1A;
+  background: transparent;
+  border: none;
+  outline: none;
+  letter-spacing: -0.01em;
+  box-sizing: border-box;
+}
+
+.url-input::placeholder {
+  color: #9A9A96;
+}
+
+/* Container sized with the pill so the send button can be anchored to its
+   right edge using flex justify-end. Sits above the clip (same center) and
+   doesn't intercept clicks outside the button. */
+.pill-actions {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  box-sizing: border-box;
+  pointer-events: none;
+  transition-property: width;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.send-btn {
+  pointer-events: auto;
+  width: 29px;
+  height: 29px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.send-btn:hover { transform: scale(1.05); }
+.send-btn:active { transform: scale(0.96); }
+.send-btn:focus-visible { outline: 2px solid #1A1A1A; outline-offset: 2px; }
+
+/* Off-screen measurement span. Mirrors input's text styling exactly. */
+.url-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
+  font-size: 16px;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+  left: -9999px;
+  top: -9999px;
+}
+
+/* Demo page stage containers. These sit centered in .page and animate in/out. */
+.demo-page .stage-input,
+.demo-page .stage-pipeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.stage-label {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6E6E69;
+}
+
+.stage-hint {
+  margin: 0;
+  font-size: 18px;
+  color: #1A1A1A;
+  letter-spacing: -0.01em;
+}
