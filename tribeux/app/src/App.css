@@ -11,6 +11,13 @@
   grid-template-rows: auto 1fr auto;
 }
 
+/* Grid items default to min-width: min-content, which lets a wide
+   non-wrapping child (e.g. the .ticker__track marquee) push the whole
+   layout past the viewport. Forcing min-width: 0 lets each track honour
+   its container's width and lets descendant overflow: hidden actually
+   clip horizontally. */
+.shell > * { min-width: 0; }
+
 /* masthead ------------------------------------------------------------- */
 
 .masthead {
