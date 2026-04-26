@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion'
 import Landing from './Landing'
 import Demo from './Demo'
 import Report from './Report'
+import Pitch from './Pitch'
 import { Masthead, Colophon } from './Shell'
 import './App.css'
 
@@ -14,6 +15,7 @@ function AnimatedRoutes() {
         <Route path="/"       element={<Landing />} />
         <Route path="/demo"   element={<Demo />} />
         <Route path="/report" element={<Report />} />
+        <Route path="/pitch"  element={<Pitch />} />
       </Routes>
     </AnimatePresence>
   )
