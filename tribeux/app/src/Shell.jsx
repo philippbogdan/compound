@@ -6,9 +6,6 @@ export function Masthead() {
       <div className="masthead__word" aria-label="Compound">
         Comp<em>ound</em>
       </div>
-      <div className="masthead__status" aria-live="polite">
-        Cortex online
-      </div>
       <nav className="masthead__nav" aria-label="Primary">
         <NavLink to="/"       end className={({isActive}) => isActive ? 'is-active' : ''}>Home</NavLink>
         <NavLink to="/demo"      className={({isActive}) => isActive ? 'is-active' : ''}>Scan</NavLink>
