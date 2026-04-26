@@ -1500,12 +1500,14 @@
    SCAN HANDOFF — Landing → Demo cinematic beat
    The pill submit triggers ScanHandoff, which mounts a full-viewport overlay
    on top of Landing. The landing itself fades + blurs (via .is-scanning).
-   The whole beat is 3400 ms; phases are encoded as animation-delay below.
+   Cinematic phases (SCAN_BEAT_MS = 3400 ms in ScanHandoff.jsx):
      0–560 ms  : overlay materialises, browser chrome rises into place
    560–1040 ms : URL types in, scaffold blocks fade in staggered
-  1040–2560 ms : 2 px ink scanline sweeps top → bottom of the canvas
-  2560–2960 ms : --good wash flashes, ✓ STIMULUS LOCKED tape stamps
-  2960–3400 ms : caller's onComplete fires the route nav, AnimatePresence exits
+  1040–2560 ms : 2 px ink scanline sweeps top → bottom TWICE (2× 760 ms)
+  2560–3280 ms : --good wash flashes, "Successful pull" tape stamps
+   Then EXIT_MS = 700 ms: the overlay fades + blurs out as a whole, and only
+   after that does onComplete fire the /demo route nav — so the cut never
+   feels abrupt.
    ========================================================================= */
 
 .landing.is-scanning > .landing__grid,
@@ -1528,6 +1530,12 @@
     radial-gradient(var(--ink-whisper) 0.6px, transparent 0.7px);
   background-size: 4px 4px;
   pointer-events: auto;
+  /* Note: opacity + filter on the overlay are driven by framer-motion via the
+     `animate` prop in ScanHandoff.jsx — inline styles win over class rules,
+     so the exit fade lives there, not here. We only own pointer-events. */
+}
+.scan-handoff.is-exiting {
+  pointer-events: none;
 }
 
 .scan-handoff__stage {
@@ -1661,7 +1669,9 @@
 .scan-handoff__block--image { background: var(--ink-whisper); border: 1.5px solid var(--ink-mute); }
 .scan-handoff__block--foot  { background: var(--ink-mute); opacity: 0.4; }
 
-/* The 2px ink line that sweeps top → bottom. Dragging a faint wash with it. */
+/* The 2 px ink line that sweeps top → bottom. Dragging a faint wash with it.
+   We run the keyframe twice (animation-iteration-count: 2) so the canvas
+   gets two full passes — implies a re-read, more confidence in the result. */
 .scan-handoff__scanline {
   position: absolute;
   left: -4px; right: -4px;
@@ -1671,7 +1681,7 @@
   box-shadow:
     0 12px 0 -2px oklch(0.16 0.010 260 / 0.10),
     0 24px 0 -4px oklch(0.16 0.010 260 / 0.06);
-  animation: handoff-scan 1520ms var(--ease-out-5) 1040ms forwards;
+  animation: handoff-scan 760ms var(--ease-out-5) 1040ms 2 forwards;
   z-index: 3;
   pointer-events: none;
 }
@@ -1718,19 +1728,20 @@
   100% { opacity: 0.35; }
 }
 
-/* The ✓ STIMULUS LOCKED tape stamp that lands during the green flash. */
+/* The "Successful pull" tape stamp that lands during the green flash.
+   Bricolage display + sentence case (instead of the earlier mono uppercase)
+   makes the punchline read warmer and on-brand with the masthead wordmark. */
 .scan-handoff__tape {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%) rotate(-3deg);
-  font-family: var(--mono);
+  font-family: var(--display);
   font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 22px;
+  letter-spacing: -0.01em;
   color: var(--ink);
   background: var(--good);
-  padding: 6px 14px;
+  padding: 8px 18px;
   border: 2px solid var(--ink);
   box-shadow: var(--shadow-hard-sm);
   opacity: 0;
