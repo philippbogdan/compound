@@ -14,3 +14,14 @@
 
 # Stray test screenshots in repo root
 /*.png
+
+# tribeux-domtree
+/tribeux-domtree/venv/
+/tribeux-domtree/output/
+
+# Python
+**/__pycache__/
+*.pyc
+
+# Empty/scratch data
+/example_data_fromtribeinference.json
