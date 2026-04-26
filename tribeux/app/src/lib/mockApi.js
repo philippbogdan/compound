@@ -15,25 +15,27 @@ const STAGE_DURATION_MS = 2000
 let nextJobId = 1
 
 /**
- * `?mock=1` in the current URL or `compound_mock=1` in localStorage. The
- * URL flag wins. We persist the URL flag to localStorage so the mock
- * state survives the React-Router route change after the verdict beat.
+ * `?mock=1` in the current URL — and only the URL. Previously this flag
+ * was persisted to localStorage so it would survive React Router route
+ * changes, but that made mock mode sticky across sessions (even across
+ * `git pull`s), which confused people into thinking the app was broken.
+ *
+ * Mock mode now lasts only as long as `?mock=1` is in the address bar.
+ * Use `?mock=0` once to purge any leftover localStorage state from the
+ * older versions — after that, plain http://localhost:5173 is always live.
  */
 export function isMockEnabled() {
   if (typeof window === 'undefined') return false
   try {
+    // Legacy cleanup: any URL that ever loads the app purges the stale key
+    // from localStorage so upgraded clients stop sticking in mock mode.
+    window.localStorage.removeItem('compound_mock')
+  } catch { /* ignore */ }
+  try {
     const params = new URLSearchParams(window.location.search)
-    if (params.has('mock')) {
-      const v = params.get('mock')
-      const on = v === '' || v === '1' || v === 'true'
-      if (on) {
-        try { window.localStorage.setItem('compound_mock', '1') } catch { /* ignore */ }
-      } else {
-        try { window.localStorage.removeItem('compound_mock') } catch { /* ignore */ }
-      }
-      return on
-    }
-    return window.localStorage.getItem('compound_mock') === '1'
+    if (!params.has('mock')) return false
+    const v = params.get('mock')
+    return v === '' || v === '1' || v === 'true'
   } catch {
     return false
   }

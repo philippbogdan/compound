@@ -3448,3 +3448,26 @@
   }
   .pitch__arch-arrow-wrap { display: none; }
 }
+
+/* Cover slide reuses .landing__* classes; this is just a tighter
+   meta block for hackathon credits below the lede. */
+.pitch__slide--cover .landing__lede { margin-bottom: 24px; }
+
+.pitch__cover-meta {
+  display: grid;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.pitch__cover-meta-row {
+  display: inline-flex;
+  gap: 12px;
+  align-items: baseline;
+}
+.pitch__cover-meta-key {
+  color: var(--ink);
+  font-weight: 700;
+}
