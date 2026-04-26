@@ -2665,6 +2665,8 @@
 
 .pitch__close-foot {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 14px;
   font-family: var(--mono);
   font-size: 11px;
@@ -2675,14 +2677,12 @@
 
 .pitch__close-pow {
   position: absolute;
-  top: 6%;
-  right: 8%;
-  width: 130px;
-  height: 130px;
-  transform: rotate(12deg);
+  bottom: 4%;
+  right: 4%;
+  width: 110px;
+  height: 110px;
   filter: drop-shadow(4px 4px 0 var(--ink));
   pointer-events: none;
-  animation: pow-settle 700ms 250ms var(--ease-out-5) both;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2792,4 +2792,172 @@
   .pitch__plates            { grid-template-columns: 1fr; }
   .pitch__chrome            { grid-template-columns: 1fr; gap: 12px; text-align: center; }
   .pitch__controls          { justify-content: center; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hook slide — "code is free, testing isn't"                         */
+/* ------------------------------------------------------------------ */
+
+.pitch__slide--hook {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  position: relative;
+}
+
+.pitch__hook-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.pitch__hook-line {
+  font-family: var(--display);
+  font-weight: 800;
+  letter-spacing: -0.018em;
+  line-height: 1.02;
+  font-size: clamp(36px, 4.8vw, 72px);
+  color: var(--ink);
+  margin: 0;
+  max-width: 26ch;
+}
+.pitch__hook-line--big {
+  font-size: clamp(48px, 6.6vw, 100px);
+  margin-top: 6px;
+}
+.pitch__hook-line .flame {
+  position: relative;
+  color: var(--flame);
+  display: inline-block;
+}
+.pitch__hook-line .flame::after {
+  content: "";
+  position: absolute;
+  left: -4px; right: -4px;
+  bottom: 0.06em;
+  height: 0.18em;
+  background: var(--pow);
+  z-index: -1;
+  border-radius: 3px;
+}
+.pitch__hook-strike {
+  position: relative;
+  color: var(--ink-mute);
+  display: inline-block;
+}
+.pitch__hook-strike::after {
+  content: "";
+  position: absolute;
+  left: -3px; right: -3px;
+  top: 52%;
+  height: 6px;
+  background: var(--flame);
+  transform: skewY(-1.5deg);
+}
+
+.pitch__hook-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 22px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+  max-width: 880px;
+}
+
+.pitch__hook-meter-row {
+  display: grid;
+  grid-template-columns: 200px 1fr auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.pitch__hook-meter-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.pitch__hook-meter-bar {
+  position: relative;
+  height: 16px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.pitch__hook-meter-bar--fill::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 0;
+  background: var(--flame);
+  transform-origin: left center;
+  animation: hook-bar-fill 1.4s 0.2s var(--ease-out-5) both;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.15) 0 2px,
+    transparent 2px 8px
+  );
+}
+.pitch__hook-meter-bar--empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 4%;
+  background: var(--ink-mute);
+  opacity: 0.4;
+}
+
+@keyframes hook-bar-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+.pitch__hook-meter-num {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.pitch__hook-meter-num--alt {
+  color: var(--flame);
+  font-style: italic;
+}
+
+@media (max-width: 720px) {
+  .pitch__hook-meter-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .pitch__hook-meter-bar { width: 100%; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Close slide — closing question                                     */
+/* ------------------------------------------------------------------ */
+
+.pitch__close-question {
+  margin: 18px 0 0;
+  max-width: 30ch;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(22px, 2.4vw, 32px);
+  line-height: 1.1;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  font-style: italic;
+  position: relative;
+  padding-left: 16px;
+}
+.pitch__close-question::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6%; bottom: 6%;
+  width: 4px;
+  background: var(--flame);
 }
