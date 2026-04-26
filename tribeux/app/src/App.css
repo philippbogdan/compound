@@ -57,6 +57,43 @@
   transform: skewX(-14deg);
 }
 
+/* `?mock=1` indicator. Click to disable. Sits between the wordmark and
+   the nav so it's unmissable but doesn't fight the brand mark. */
+.masthead__mock {
+  margin-right: auto;
+  margin-left: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 8px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--pow);
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out-5), box-shadow 160ms var(--ease-out-5);
+}
+.masthead__mock:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.masthead__mock:active {
+  transform: translate(0, 0);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.masthead__mock__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--flame);
+  border: 1.5px solid var(--ink);
+}
+
 .masthead__nav {
   display: flex;
   gap: 22px;
