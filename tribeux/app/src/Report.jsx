@@ -72,6 +72,11 @@ function EmotionRow({ axis, cohort, series, idx, expectedDelta }) {
         )}
       </div>
       <div className="emotion-row__graph">
+        <span className="emotion-row__y-axis" aria-hidden="true">
+          <em>+1σ</em>
+          <em>0</em>
+          <em>−1σ</em>
+        </span>
         <svg viewBox="0 0 100 60" preserveAspectRatio="none">
           <line className="zero" x1="0" y1="50" x2="100" y2="50" />
           <path className="bench" d={benchPath} />
@@ -101,16 +106,21 @@ function StarburstBadge({ uplift }) {
         strokeWidth="3"
         strokeLinejoin="round"
       />
-      <text x="70" y="68" textAnchor="middle"
+      <text x="70" y="64" textAnchor="middle"
         fontFamily="'Bricolage Grotesque', sans-serif"
         fontWeight="800" fontSize="22"
         fill="oklch(0.16 0.010 260)"
         style={{ letterSpacing: '-0.02em' }}>{sign}{Math.abs(pct)}%</text>
-      <text x="70" y="88" textAnchor="middle"
+      <text x="70" y="80" textAnchor="middle"
         fontFamily="'Space Mono', monospace"
-        fontWeight="700" fontSize="8.5"
+        fontWeight="700" fontSize="7.5"
         fill="oklch(0.16 0.010 260)"
-        style={{ letterSpacing: '0.14em' }}>PREDICTED</text>
+        style={{ letterSpacing: '0.16em' }}>PREDICTED</text>
+      <text x="70" y="92" textAnchor="middle"
+        fontFamily="'Space Mono', monospace"
+        fontWeight="700" fontSize="7.5"
+        fill="oklch(0.16 0.010 260)"
+        style={{ letterSpacing: '0.16em' }}>UPLIFT</text>
     </svg>
   )
 }
@@ -198,7 +208,11 @@ export default function Report() {
             <span className="num">
               {worst.z >= 0 ? '+' : '−'}{Math.abs(worst.z).toFixed(2)}
             </span>
-            <span className="unit">Z-SCORE · {worst.axis.toUpperCase()} · {worstMeta.meta}</span>
+            <span className="unit">
+              <em>Z-score</em>
+              <em>{worst.axis.replace('_', ' ').toUpperCase()}</em>
+              <em>{worstMeta.meta}</em>
+            </span>
           </div>
           <p className="report__verdict__body">
             {findings.summary}
@@ -226,18 +240,19 @@ export default function Report() {
             ))}
           </div>
 
-          <p style={{
-            fontSize: 12,
-            fontFamily: 'var(--mono)',
-            fontWeight: 700,
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            color: 'var(--ink-mute)',
-            marginTop: 4,
-          }}>
-            Dashed = benchmark mean (n={result.cohort.n}).
-            Solid = your site (z-scored, {series.attention.length} timesteps).
-            Crimson = friction axis.
+          <p className="emotions__legend">
+            <span>
+              <em className="legend-swatch is-bench" /> Bench (n={result.cohort.n})
+            </span>
+            <span>
+              <em className="legend-swatch is-live" /> Your site
+            </span>
+            <span>
+              <em className="legend-swatch is-friction" /> Friction axis
+            </span>
+            <span className="legend-rule">
+              |z| ≥ 1 reads as anomaly
+            </span>
           </p>
 
           <div className="col-head" style={{ marginTop: 28 }}>
@@ -389,8 +404,11 @@ export default function Report() {
           Want the <span className="flame">v2 patch</span> — copy, palette, and the
           frames Claude drew over — as a Figma link?
         </p>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <button className="btn">Download patch</button>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <button className="btn btn--xl">
+            Download v2 patch
+            <span className="btn__tag">Free for the demo</span>
+          </button>
           <Link to="/" className="btn btn--ghost" style={{ textDecoration: 'none' }}>
             Scan another site
           </Link>

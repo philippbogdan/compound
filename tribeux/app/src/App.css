@@ -494,13 +494,24 @@
 .scan__headline {
   font-family: var(--display);
   font-weight: 800;
-  font-size: clamp(36px, 5.2vw, 66px);
-  line-height: 0.96;
+  font-size: clamp(34px, 4.6vw, 58px);
+  line-height: 0.98;
   letter-spacing: -0.03em;
   color: var(--ink);
-  max-width: 16ch;
+  max-width: 18ch;
+  min-height: 1.96em; /* reserves two lines so the swap doesn't reflow */
+  position: relative;
 }
 .scan__headline .flame { color: var(--flame); }
+.scan__headline__stage {
+  display: block;
+  position: relative;
+}
+.scan__headline__line {
+  display: block;
+}
+.scan__headline__line--lead { color: var(--ink); }
+.scan__headline__line--tail { color: var(--flame); }
 
 .scan__target {
   display: flex;
@@ -536,15 +547,15 @@
 /* video + meta */
 .scan__video {
   display: grid;
-  grid-template-columns: 272px 1fr;
-  gap: 28px;
-  padding: 20px 0;
+  grid-template-columns: 348px 1fr;
+  gap: 32px;
+  padding: 22px 0;
   border-top: 1px solid var(--hairline-2);
   border-bottom: 1px solid var(--hairline-2);
 }
 .scan__video-frame {
-  width: 256px;
-  height: 256px;
+  width: 332px;
+  height: 332px;
   border: 2px solid var(--ink);
   background: var(--paper-deep);
   position: relative;
@@ -635,34 +646,49 @@
 }
 .scan__meta dd .flame { color: var(--flame); }
 
-/* log */
+/* log — fixed last-3 window. New lines slam in from the top, older lines
+   slide down. The header is a small "tail" tag so the user knows this is
+   live evidence, not the whole log. */
 .scan__log {
   font-family: var(--mono);
   font-size: 12px;
-  line-height: 1.8;
+  line-height: 1.7;
   color: var(--ink-soft);
-  max-height: 240px;
-  overflow: hidden;
   position: relative;
-  padding: 16px 18px;
+  padding: 14px 18px;
   background: var(--paper-2);
   border: 2px solid var(--ink);
   box-shadow: var(--shadow-hard-sm);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  min-height: 96px;
 }
-.scan__log::after {
-  content: "";
+.scan__log::before {
+  content: "tail · pipeline events";
   position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 60px;
-  background: linear-gradient(180deg, transparent, var(--paper-2));
-  pointer-events: none;
+  top: -10px; left: 14px;
+  background: var(--paper);
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
 }
 .scan__log .log-line {
   display: grid;
   grid-template-columns: 56px 96px 1fr;
   gap: 14px;
-  opacity: 0;
-  animation: log-fade 400ms var(--ease-out-5) forwards;
+  opacity: 0.5;
+}
+/* With flex-direction: column-reverse the LAST DOM child renders at the top
+   visually — that's the newest log line. Animate only the newest. */
+.scan__log .log-line:last-child {
+  color: var(--ink);
+  opacity: 1;
+  animation: log-slam 380ms var(--ease-out-5);
 }
 .scan__log .log-line span:first-child { color: var(--ink-whisper); }
 .scan__log .log-line span:nth-child(2) {
@@ -706,9 +732,10 @@
 @keyframes caret-blink {
   50% { opacity: 0; }
 }
-@keyframes log-fade {
-  from { opacity: 0; transform: translateX(-4px); }
-  to   { opacity: 1; transform: translateX(0); }
+@keyframes log-slam {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  60%  { opacity: 1; transform: translateY(1px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* aside */
@@ -875,6 +902,8 @@
   line-height: 0.94;
   letter-spacing: -0.03em;
   color: var(--ink);
+  text-wrap: balance;
+  max-width: 18ch;
 }
 .report__title .flame { color: var(--flame); }
 .report__title s {
@@ -916,14 +945,24 @@
   color: var(--pulse);
 }
 .report__verdict__z .unit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-family: var(--mono);
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-mute);
-  max-width: 10ch;
+  align-self: flex-end;
+  padding-bottom: 4px;
 }
+.report__verdict__z .unit em {
+  font-style: normal;
+  white-space: nowrap;
+}
+.report__verdict__z .unit em:first-child { color: var(--ink-whisper); }
+.report__verdict__z .unit em:nth-child(2) { color: var(--ink); font-weight: 800; }
 .report__verdict__body {
   font-family: var(--sans);
   font-size: 15px;
@@ -970,6 +1009,42 @@
 /* emotion rows */
 .emotions { display: flex; flex-direction: column; gap: 6px; }
 
+.emotions__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ink-whisper);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.emotions__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.emotions__legend .legend-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 2px solid var(--flame);
+}
+.emotions__legend .legend-swatch.is-bench  { border-top-style: dashed; border-color: var(--ink-mute); }
+.emotions__legend .legend-swatch.is-live   { border-color: var(--flame); }
+.emotions__legend .legend-swatch.is-friction { border-color: var(--pulse); }
+.emotions__legend .legend-rule {
+  margin-left: auto;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 700;
+}
+
 .emotion-row {
   display: grid;
   grid-template-columns: 180px 1fr 72px;
@@ -1010,11 +1085,33 @@
   background-size: 6px 6px;
 }
 .emotion-row__graph svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.emotion-row__y-axis {
+  position: absolute;
+  inset: 0 auto 0 -22px;
+  width: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 1px 0;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-whisper);
+  pointer-events: none;
+}
+.emotion-row__y-axis em {
+  font-style: normal;
+  line-height: 1;
+}
 .emotion-row__graph .bench {
   fill: none;
-  stroke: var(--ink-whisper);
-  stroke-width: 1.6;
-  stroke-dasharray: 3 4;
+  stroke: var(--ink-mute);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 5;
+  opacity: 0.55;
 }
 .emotion-row__graph .live {
   fill: none;
@@ -1275,6 +1372,28 @@
   box-shadow: 4px 4px 0 var(--ink);
 }
 .btn--ghost:hover { background: var(--ink); color: var(--paper); box-shadow: 6px 6px 0 var(--flame); }
+.btn--xl {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  padding: 18px 28px 19px;
+  box-shadow: 6px 6px 0 var(--flame);
+}
+.btn--xl:hover { box-shadow: 9px 9px 0 var(--ink); transform: translate(-3px, -3px); }
+.btn--xl:active { box-shadow: 3px 3px 0 var(--ink); }
+.btn__tag {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--flame);
+}
+.btn:hover .btn__tag { color: var(--ink); }
 
 /* =========================================================================
    RESPONSIVE
@@ -1343,23 +1462,34 @@
 .stage-row::before {
   content: "";
   position: absolute;
-  left: 0; right: 0; bottom: 0;
+  left: 0; right: 0; bottom: -1px;
   height: 2px;
   background: var(--flame);
   transform-origin: left;
   transform: scaleX(0);
   pointer-events: none;
 }
+/* Indeterminate sweep — server controls actual stage timing, so the active
+   row gets a continuous L→R bar that loops until the stage advances. The
+   bar is wider than the row and clipped, so what reads is a flame-coloured
+   pulse traversing the row baseline. */
 .stage-row.is-active::before {
-  animation: stage-progress var(--stage-ms, 1500ms) linear forwards;
+  width: 36%;
+  left: -36%;
+  right: auto;
+  transform: none;
+  animation: stage-progress-loop 1.6s linear infinite;
 }
 .stage-row.is-done::before {
   transform: scaleX(1);
   background: var(--ink);
+  width: 100%;
+  left: 0;
+  right: 0;
 }
-@keyframes stage-progress {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
+@keyframes stage-progress-loop {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(380%); }
 }
 
 /* Scan frame — verdict overlay at scan completion.
@@ -1379,7 +1509,31 @@
       oklch(0.92 0.003 250 / 0.94) 0%,
       oklch(0.92 0.003 250 / 0.82) 60%,
       oklch(0.92 0.003 250 / 0.6) 100%);
-  pointer-events: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  transition: background 200ms var(--ease-out-5);
+}
+.scan__verdict-overlay:hover {
+  background:
+    radial-gradient(ellipse at center,
+      oklch(0.92 0.003 250 / 0.98) 0%,
+      oklch(0.92 0.003 250 / 0.88) 60%,
+      oklch(0.92 0.003 250 / 0.6) 100%);
+}
+.scan__verdict-overlay__cta {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.scan__verdict-overlay:hover .scan__verdict-overlay__cta {
+  color: var(--ink);
 }
 .scan__verdict-overlay__tape {
   font-family: var(--mono);

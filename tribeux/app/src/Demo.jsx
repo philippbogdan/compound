@@ -7,23 +7,35 @@ import { useAnalysis } from './lib/useAnalysis'
 
 // Stages are derived from the server's `progress.stage` and our static
 // labelling map. The list mirrors the orchestrator in tribeux-server.
+// `headline` morphs the page hero so the largest type on the page tracks
+// what's actually happening right now.
 const STAGES = [
-  { key: 'queued',    label: 'QUEUED',     long: 'Waiting for a worker' },
-  { key: 'render',    label: 'RENDER',     long: 'Playwright + tribedomtree' },
-  { key: 'encode',    label: 'ENCODE',     long: '13 × 256² scrolling capture' },
-  { key: 'tribe',     label: 'TRIBE v2',   long: 'Cortical response, frame by frame' },
-  { key: 'project',   label: 'PROJECT',    long: 'Destrieux to affective axes' },
-  { key: 'benchmark', label: 'BENCHMARK',  long: 'Z-score vs n=30 corpus' },
-  { key: 'claude',    label: 'CLAUDE',     long: 'Anomaly review + redesign proposals' },
-  { key: 'frames',    label: 'FRAMES',     long: 'Pull frames Claude flagged' },
-  { key: 'compose',   label: 'COMPOSE',    long: 'Apply patches via tribedomtree' },
-  { key: 'done',      label: 'VERDICT',    long: 'Predicted uplift' },
+  { key: 'queued',    label: 'QUEUED',     long: 'Waiting for a worker',
+    headline: ['Queueing', 'the scan.'] },
+  { key: 'render',    label: 'RENDER',     long: 'Playwright + tribedomtree',
+    headline: ['Capturing the page,', 'one scroll at a time.'] },
+  { key: 'encode',    label: 'ENCODE',     long: '13 × 256² scrolling capture',
+    headline: ['Compressing 4.8s of pixels', 'into a tensor.'] },
+  { key: 'tribe',     label: 'TRIBE v2',   long: 'Cortical response, frame by frame',
+    headline: ['Predicting cortical response', 'across 115 regions.'] },
+  { key: 'project',   label: 'PROJECT',    long: 'Destrieux to affective axes',
+    headline: ['Projecting Destrieux onto', 'four affective axes.'] },
+  { key: 'benchmark', label: 'BENCHMARK',  long: 'Z-score vs n=30 corpus',
+    headline: ['Z-scoring against', 'thirty real homepages.'] },
+  { key: 'claude',    label: 'CLAUDE',     long: 'Anomaly review + redesign proposals',
+    headline: ['Claude is reading', 'the anomalies.'] },
+  { key: 'frames',    label: 'FRAMES',     long: 'Pull frames Claude flagged',
+    headline: ['Pulling the four frames', 'that mattered.'] },
+  { key: 'compose',   label: 'COMPOSE',    long: 'Apply patches via tribedomtree',
+    headline: ['Patching the DOM', 'with the proposed redesign.'] },
+  { key: 'done',      label: 'VERDICT',    long: 'Predicted uplift',
+    headline: ['Findings', 'are ready.'] },
 ]
 const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]))
 
 const QUIET_STAGES = new Set(['claude', 'compose', 'done'])
 
-const VERDICT_BEAT_MS = 1200
+const VERDICT_BEAT_MS = 2800
 
 export default function Demo() {
   const [params] = useSearchParams()
@@ -65,12 +77,17 @@ export default function Demo() {
   }, [sparklineQuiet, isComplete])
 
   // Route to the report a beat after the verdict frame appears so the
-  // motion has time to settle.
+  // motion has time to settle. The user can also tap the verdict overlay
+  // to advance immediately.
   useEffect(() => {
     if (!isComplete) return undefined
     const id = setTimeout(() => nav(`/report?job=${job.id}`), VERDICT_BEAT_MS)
     return () => clearTimeout(id)
   }, [isComplete, job?.id, nav])
+
+  const goToReport = () => {
+    if (job?.id) nav(`/report?job=${job.id}`)
+  }
 
   const visibleLogs = job?.logs || []
   const verdictZ = useMemo(() => {
@@ -123,9 +140,24 @@ export default function Demo() {
       </aside>
 
       <div className="scan__main">
-        <h2 className="scan__headline">
-          Reading the <span className="flame">homepage</span><br />
-          one cortical frame at a time.
+        <h2 className="scan__headline" aria-live="polite">
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={stageKey}
+              className="scan__headline__stage"
+              initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+              transition={{ duration: 0.34, ease: EASE_OUT_QUINT }}
+            >
+              <span className="scan__headline__line scan__headline__line--lead">
+                {(STAGES[activeIdx] || STAGES[0]).headline[0]}
+              </span>
+              <span className="scan__headline__line scan__headline__line--tail">
+                {(STAGES[activeIdx] || STAGES[0]).headline[1]}
+              </span>
+            </motion.span>
+          </AnimatePresence>
         </h2>
 
         <div className="scan__target">
@@ -161,9 +193,11 @@ export default function Demo() {
 
             <AnimatePresence>
               {isComplete && verdictZ && (
-                <motion.div
+                <motion.button
+                  type="button"
                   key="verdict-overlay"
                   className="scan__verdict-overlay"
+                  onClick={goToReport}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -175,7 +209,7 @@ export default function Demo() {
                     animate={{ opacity: 1, y: 0, rotate: -2 }}
                     transition={{ duration: 0.36, ease: EASE_OUT_QUINT, delay: 0.05 }}
                   >
-                    FIG. 02 — VERDICT · {verdictZ.axis.toUpperCase()}
+                    FIG. 02 — VERDICT · {verdictZ.axis.toUpperCase().replace('_', ' ')}
                   </motion.span>
                   <motion.span
                     className="scan__verdict-overlay__num"
@@ -186,7 +220,15 @@ export default function Demo() {
                     {verdictZ.z >= 0 ? '+' : '−'}
                     {Math.abs(verdictZ.z).toFixed(2)}σ
                   </motion.span>
-                </motion.div>
+                  <motion.span
+                    className="scan__verdict-overlay__cta"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.32, ease: EASE_OUT_QUINT, delay: 0.6 }}
+                  >
+                    [ tap to enter report ]
+                  </motion.span>
+                </motion.button>
               )}
             </AnimatePresence>
           </div>
@@ -256,13 +298,6 @@ export default function Demo() {
           </p>
         </div>
 
-        <div className="scan__aside__section">
-          <h5>License</h5>
-          <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-mute)' }}>
-            TRIBE v2 is research-licensed (CC BY-NC). Non-clinical. Outputs are
-            interpretive, not diagnostic.
-          </p>
-        </div>
       </aside>
     </motion.section>
   )
