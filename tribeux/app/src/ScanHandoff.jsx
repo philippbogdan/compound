@@ -49,10 +49,16 @@ export default function ScanHandoff({ url, onComplete }) {
       className={`scan-handoff${exiting ? ' is-exiting' : ''}`}
       role="status"
       aria-live="polite"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, filter: 'blur(0px)' }}
+      animate={{
+        opacity: exiting ? 0 : 1,
+        filter: exiting ? 'blur(8px)' : 'blur(0px)',
+      }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.22, ease: EASE_OUT_QUINT }}
+      transition={{
+        duration: exiting ? 0.7 : 0.22,
+        ease: EASE_OUT_QUINT,
+      }}
     >
       <div className="scan-handoff__stage">
         <div className="scan-handoff__chrome">

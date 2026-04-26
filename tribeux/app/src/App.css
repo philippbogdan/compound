@@ -1530,15 +1530,11 @@
     radial-gradient(var(--ink-whisper) 0.6px, transparent 0.7px);
   background-size: 4px 4px;
   pointer-events: auto;
-  /* Smooth exit: when ScanHandoff sets .is-exiting, the whole overlay
-     gently fades + blurs out before the /demo route nav fires. */
-  transition:
-    opacity 700ms var(--ease-out-5),
-    filter 700ms var(--ease-out-5);
+  /* Note: opacity + filter on the overlay are driven by framer-motion via the
+     `animate` prop in ScanHandoff.jsx — inline styles win over class rules,
+     so the exit fade lives there, not here. We only own pointer-events. */
 }
 .scan-handoff.is-exiting {
-  opacity: 0;
-  filter: blur(8px);
   pointer-events: none;
 }
 
