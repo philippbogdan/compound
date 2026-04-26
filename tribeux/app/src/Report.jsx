@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PAGE_VARIANTS, PAGE_TRANSITION } from './motion'
@@ -123,6 +123,104 @@ function StarburstBadge({ uplift }) {
         fill="oklch(0.16 0.010 260)"
         style={{ letterSpacing: '0.16em' }}>UPLIFT</text>
     </svg>
+  )
+}
+
+/**
+ * Vertical-handle before/after wipe.
+ *
+ * `beforeSrc` is rendered full-bleed underneath; `afterSrc` is layered
+ * on top and clipped from the left edge to the handle position. Drag
+ * the handle right → reveals more of `before` (handle at far right
+ * fully hides `after`). Drag left → reveals more of `after`.
+ *
+ * Pointer events drive both mouse and touch; arrow keys move the
+ * handle in 2% (or 10% with shift) increments for keyboard users.
+ */
+function BeforeAfterSlider({ beforeSrc, afterSrc, beforeLabel, afterLabel, beforeFallback, afterFallback, uplift }) {
+  const containerRef = useRef(null)
+  const [pos, setPos] = useState(50)
+  const draggingRef = useRef(false)
+
+  const updateFromClientX = (clientX) => {
+    const el = containerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const next = ((clientX - rect.left) / rect.width) * 100
+    setPos(Math.max(0, Math.min(100, next)))
+  }
+
+  const onPointerDown = (e) => {
+    draggingRef.current = true
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    updateFromClientX(e.clientX)
+  }
+  const onPointerMove = (e) => {
+    if (!draggingRef.current) return
+    updateFromClientX(e.clientX)
+  }
+  const onPointerUp = (e) => {
+    draggingRef.current = false
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
+  }
+  const onKeyDown = (e) => {
+    const step = e.shiftKey ? 10 : 2
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault(); setPos(p => Math.max(0, p - step))
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault(); setPos(p => Math.min(100, p + step))
+    } else if (e.key === 'Home') {
+      e.preventDefault(); setPos(0)
+    } else if (e.key === 'End') {
+      e.preventDefault(); setPos(100)
+    }
+  }
+
+  return (
+    <div
+      className="ba-slider"
+      ref={containerRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      {/* before — sits underneath, always full width */}
+      <div className="ba-slider__layer">
+        {beforeSrc ? (
+          <img src={beforeSrc} alt={beforeLabel} className="ba-slider__img" />
+        ) : beforeFallback}
+        <span className="ba-slider__stamp ba-slider__stamp--before">{beforeLabel}</span>
+      </div>
+      {/* after — clipped from the left to the handle position */}
+      <div className="ba-slider__layer ba-slider__layer--after" style={{ clipPath: `inset(0 0 0 ${pos}%)` }}>
+        {afterSrc ? (
+          <img src={afterSrc} alt={afterLabel} className="ba-slider__img" />
+        ) : afterFallback}
+        <span className="ba-slider__stamp ba-slider__stamp--after">{afterLabel}</span>
+      </div>
+      <div
+        className="ba-slider__handle"
+        role="slider"
+        aria-label="Before/after slider"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pos)}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        style={{ left: `${pos}%` }}
+      >
+        <span className="ba-slider__handle__rule" aria-hidden="true" />
+        <span className="ba-slider__handle__knob" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M9 6 L4 12 L9 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M15 6 L20 12 L15 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </div>
+      <StarburstBadge uplift={uplift} />
+    </div>
   )
 }
 
@@ -305,37 +403,26 @@ export default function Report() {
         <div className="col-head">
           <span>§ D</span>
           <h3>Before, after</h3>
+          <span className="col-head__hint">drag the handle ↔ to compare</span>
         </div>
-        <div className="diff diff--hero">
-          <div className="diff__side">
-            <span className="diff__side__stamp">v1 · current</span>
-            {result.screenshot_v1_data_url ? (
-              <img src={result.screenshot_v1_data_url} alt="Current site"
-                style={diffImgStyle} />
-            ) : (
-              <img src="/airbnb-landing.png" alt="Current site" style={diffImgStyle}
-                onError={e => { e.currentTarget.style.display = 'none' }} />
-            )}
-          </div>
-          <div className="diff__side is-after">
-            <span className="diff__side__stamp">v2 · proposed</span>
-            {result.screenshot_v2_data_url ? (
-              <img src={result.screenshot_v2_data_url} alt="Proposed redesign"
-                style={diffImgStyle} />
-            ) : (
-              <img
-                src="/sticker-brain-fire.png"
-                alt="Proposed redesign"
-                style={{
-                  width: '72%', height: 'auto', position: 'absolute',
-                  right: -20, bottom: -20, transform: 'rotate(6deg)', opacity: 0.55,
-                  mixBlendMode: 'multiply',
-                }}
-              />
-            )}
-          </div>
-          <StarburstBadge uplift={uplift} />
-        </div>
+        <BeforeAfterSlider
+          beforeSrc={result.screenshot_v1_data_url || '/airbnb-landing.png'}
+          afterSrc={result.screenshot_v2_data_url || null}
+          beforeLabel="v1 · current"
+          afterLabel="v2 · proposed"
+          afterFallback={
+            <img
+              src="/sticker-brain-fire.png"
+              alt="Proposed redesign"
+              style={{
+                width: '72%', height: 'auto', position: 'absolute',
+                right: -20, bottom: -20, transform: 'rotate(6deg)', opacity: 0.55,
+                mixBlendMode: 'multiply',
+              }}
+            />
+          }
+          uplift={uplift}
+        />
       </div>
 
       <div className="report__body">
@@ -624,10 +711,6 @@ const iterLabelStyle = {
   letterSpacing: '0.08em',
   color: 'var(--ink-mute)',
   textTransform: 'uppercase',
-}
-
-const diffImgStyle = {
-  width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', opacity: 0.94,
 }
 
 function preStyle(kind) {
