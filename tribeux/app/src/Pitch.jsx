@@ -252,7 +252,7 @@ function SlideDemo() {
       <div className="pitch__demo-stage">
         <figure className="pitch__demo-frame pitch__demo-frame--before">
           <figcaption>BEFORE · v1</figcaption>
-          <img src="/airbnb-landing.png" alt="The original homepage frame at second 04." />
+          <img src="/airbnb-mock.png" alt="The original homepage frame at second 04." />
           <span className="pitch__demo-stamp pitch__demo-stamp--bad">REWARD ↓ 38%</span>
         </figure>
 
@@ -274,7 +274,7 @@ function SlideDemo() {
 
         <figure className="pitch__demo-frame pitch__demo-frame--after">
           <figcaption>AFTER · v2</figcaption>
-          <img src="/airbnb-landing.png" alt="The redesigned homepage frame at second 04." />
+          <img src="/airbnb-mock.png" alt="The redesigned homepage frame at second 04." />
           <span className="pitch__demo-stamp pitch__demo-stamp--good">REWARD ↑ +14%</span>
         </figure>
       </div>
