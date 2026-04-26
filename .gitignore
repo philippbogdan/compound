@@ -30,3 +30,9 @@
 /tribeux-server/.venv/
 /tribeux-server/__pycache__/
 /tribeux-server/*.egg-info/
+
+# Local env files (real secrets — never commit). Keep `.env.example` checked in.
+.env
+.env.local
+.env.*.local
+!.env.example
