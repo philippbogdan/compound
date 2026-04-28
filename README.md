@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://app.devin.ai/attachments/0fee2b22-6d42-49a8-8daf-4f2bd0e68202/image.png" alt="Compound — User testing, without users." width="100%" />
+<img src="./docs/hero.png" alt="Compound — User testing, without users." width="100%" />
 
 # **Compound**
 
