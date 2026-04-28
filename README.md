@@ -235,6 +235,193 @@ The Claude analyst always optimises against the **worst** axis first.
 
 ---
 
+## ✦ Wiring up real models
+
+The defaults (`MOCK_CLAUDE=1`, `TRIBE_INFERENCE_URL` unset) keep the demo
+fully offline — every external call has a deterministic fallback. To run
+*for real* you need to bring your own TRIBE v2 inference service, your
+Destrieux → 4-axis projection, and a benchmark cohort. The contracts are
+narrow and documented below; the rest of the pipeline doesn't move.
+
+### 1. TRIBE v2 endpoint (Colab + ngrok)
+
+**The server's contract.** `tribeux_server.inference._post_score`
+([`inference.py:73-85`](./tribeux-server/tribeux_server/inference.py))
+hits a single endpoint:
+
+```
+POST  ${TRIBE_INFERENCE_URL}/score
+Headers:  ngrok-skip-browser-warning: true
+Body (multipart/form-data):
+  video : the captured 256×256 mp4   (file)
+  label : a string identifier        (form field)
+Response:  JSON in the exact shape of `samples/site_1.json`
+```
+
+That JSON is parsed straight into
+[`InferenceResult`](./tribeux-server/tribeux_server/schemas.py) — keep the
+fields and the `time_series_zscored` length (= `tribe_timesteps`) intact
+or the report renderer will choke.
+
+**Why Colab + ngrok.** TRIBE v2 wants a GPU; a free Colab T4/A100 is the
+fastest path. Colab's runtime isn't internet-addressable, so you front
+it with [ngrok](https://ngrok.com/) and point the server at the public
+URL. The repo even ships a default placeholder
+(`https://refined-sixties-elliptic.ngrok-free.dev` in
+[`tribeux-server/.env.example`](./tribeux-server/.env.example)).
+
+**Recipe.** In a Colab cell:
+
+```python
+# Cell 1 — install
+!pip install -q fastapi uvicorn pyngrok python-multipart torch torchvision
+# (plus whatever TRIBE v2 needs — its weights, transformers, nilearn, etc.)
+
+# Cell 2 — load TRIBE v2 weights once (CC BY-NC, research-only).
+# This is your work; the server doesn't care how you load it.
+import torch
+tribe = load_tribev2_somehow().eval().cuda()
+
+# Cell 3 — define /score
+import io, tempfile, datetime
+from fastapi import FastAPI, UploadFile, File, Form
+import uvicorn, nest_asyncio
+from pyngrok import ngrok
+
+app = FastAPI()
+
+@app.post("/score")
+async def score(video: UploadFile = File(...), label: str = Form("site")):
+    # 1. Read mp4, decode 13 frames @ 1 fps
+    raw = await video.read()
+    frames = decode_video_to_tensor(raw, n=13, size=256)   # (T,3,256,256)
+
+    # 2. Forward through TRIBE v2 → per-region activations (T, n_regions)
+    with torch.inference_mode():
+        regions = tribe(frames.cuda())
+
+    # 3. Project Destrieux parcels → 4 affective axes (see §2 below)
+    axes = destrieux_to_axes(regions)                       # (T, 4)
+
+    # 4. Build the response in the InferenceResult shape
+    return build_inference_result(axes, label=label)        # see schemas.py
+
+# Cell 4 — expose via ngrok
+ngrok.set_auth_token("YOUR_NGROK_TOKEN")          # ngrok dashboard
+public = ngrok.connect(8000, "http")
+print("TRIBE_INFERENCE_URL =", public.public_url)
+
+nest_asyncio.apply()
+uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+Then locally:
+
+```bash
+# tribeux-server/.env
+TRIBE_INFERENCE_URL=https://<your-tunnel>.ngrok-free.dev
+MOCK_TRIBE=0
+```
+
+The server auto-detects `TRIBE_INFERENCE_URL`, encodes captured frames into
+mp4 via ffmpeg, POSTs to `/score`, and falls back to the stub on any
+error so the demo never breaks mid-flight.
+
+### 2. Destrieux atlas → 4 affective axes
+
+TRIBE v2 emits a per-second activation vector across the cortex. We
+collapse that into four interpretable affective axes by averaging the
+activations over the Destrieux parcels associated with each axis (the
+regions baked into [`samples/cohort.json`](./tribeux-server/samples/cohort.json)):
+
+| Axis | Destrieux / atlas locus | Roughly |
+|---|---|---|
+| `attention`      | fronto-parietal · D29           | top-down focus |
+| `self_relevance` | DMN · precuneus                 | "this is for me" |
+| `reward`         | ventral striatum · VTA          | anticipated value |
+| `disgust`        | insula · orbitofrontal          | friction / aversion |
+
+Concretely, build a 4-row binary mask `M[axis, region] ∈ {0,1}` from
+those labels (use `nilearn.datasets.fetch_atlas_destrieux_2009` →
+`labels`) and project:
+
+```python
+# regions: torch.Tensor (T, n_regions)  — TRIBE v2 output
+# M:       torch.Tensor (4, n_regions)  — Destrieux → axis mask
+axes = (regions @ M.T) / M.sum(dim=1).clamp_min(1)   # (T, 4)
+```
+
+The four axis labels in your response **must** be exactly
+`attention · self_relevance · reward · disgust` (those keys flow through
+the schema, the cohort, the Claude prompt, the report SVGs and the
+brain canvas).
+
+### 3. Build your own benchmark cohort
+
+The "z-score vs cohort" headline numbers come from
+[`samples/cohort.json`](./tribeux-server/samples/cohort.json):
+
+```json
+{
+  "cohort_id": "n30_landing_pages_v0",
+  "n": 30,
+  "sites": ["airbnb", "stripe", "linear", "...", "wikipedia"],
+  "axes": ["attention", "self_relevance", "reward", "disgust"],
+  "axis_stats": {
+    "attention":      { "mean":  0.0166, "std": 0.0796 },
+    "self_relevance": { "mean": -0.0512, "std": 0.0282 },
+    "reward":         { "mean": -0.0205, "std": 0.0191 },
+    "disgust":        { "mean":  0.0376, "std": 0.0698 }
+  },
+  "interpretation": { ... },
+  "notes": "cohort_z = (raw_score - mean) / std"
+}
+```
+
+To roll your own (different vertical, different sample size, different
+TRIBE checkpoint), score each site through your own TRIBE endpoint then
+fit per-axis stats:
+
+```bash
+# 1. capture each site as the same 256×256 / 13-frame mp4 the server uses
+for url in $(cat my_cohort.txt); do
+  python -c "
+import asyncio
+from url_to_video import URLRecorder, VideoEditor
+async def go():
+    r = await URLRecorder('cohort_raw').record_scroll('$url', duration=15)
+    VideoEditor(target_size=(256,256), target_fps=30) \
+        .process_video(r['video_path'], 'cohort_mp4/${url//[^a-z]/_}.mp4')
+asyncio.run(go())
+"
+done
+
+# 2. score each through your TRIBE endpoint (curl mirrors the server)
+for f in cohort_mp4/*.mp4; do
+  curl -s -X POST "$TRIBE_INFERENCE_URL/score" \
+    -H "ngrok-skip-browser-warning: true" \
+    -F "video=@$f" -F "label=$(basename $f .mp4)" \
+    > "cohort_scores/$(basename $f .mp4).json"
+done
+
+# 3. fit per-axis (mean, std) over `headline_scores_within_site` and
+#    write the new cohort.json — drop it into tribeux-server/samples/
+python tools/fit_cohort.py cohort_scores/ \
+  > tribeux-server/samples/cohort.json
+```
+
+A minimal `fit_cohort.py` is ~20 lines: load each result, pull
+`video_modality.headline_scores_within_site.<axis>`, compute mean/std
+per axis, stamp `cohort_id`, `n`, `sites`, `axes`, `axis_stats`,
+`interpretation`. The schema is enforced by
+[`tribeux_server.schemas.Cohort`](./tribeux-server/tribeux_server/schemas.py)
+so a typo blows up at server start, not silently in the report.
+
+> Heads-up: cohort stats must match the **same scoring run** as the live
+> sites you're z-scoring. If you swap TRIBE checkpoints, refit the cohort.
+
+---
+
 ## ✦ Stack
 
 - **Frontend** — React 19, Vite 8, Framer Motion 12, Three.js, React Router 7
