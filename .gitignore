@@ -15,6 +15,15 @@
 # Stray test screenshots in repo root
 /*.png
 
+# Local pipeline artifacts (sample mp4 outputs, scratch logs)
+/iteration_*.mp4
+/pipeline_results/
+
+# Claude Code / agent session transcripts (don't commit)
+/2026-*-*.txt
+/2027-*-*.txt
+/continue_pipelinework.txt
+
 # tribeux-domtree
 /tribeux-domtree/venv/
 /tribeux-domtree/output/
